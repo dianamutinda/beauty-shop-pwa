@@ -23,6 +23,10 @@ export function getShopId() {
   return shopIdPromise
 }
 
+export function ensureShop() {
+  return getShopId()
+}
+
 export async function getShop() {
   const id = await getShopId()
   return db.shops.get(id)
