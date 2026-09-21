@@ -2,12 +2,9 @@ export function formatKsh(amount) {
   return `KSh ${Number(amount).toLocaleString('en-KE')}`
 }
 
-// Temporary constant. On Day 6 this becomes a setting the owner can change.
-const LOW_STOCK_LEVEL = 5
-
-export function stockStatus(stock) {
+export function stockStatus(stock, lowAt) {
   if (stock <= 0) return { label: 'Out of stock', className: 'text-red-600' }
-  if (stock <= LOW_STOCK_LEVEL) return { label: `Low stock: ${stock}`, className: 'text-amber-600' }
+  if (stock <= lowAt) return { label: `Low stock: ${stock}`, className: 'text-amber-600' }
   return { label: `In stock: ${stock}`, className: 'text-green-600' }
 }
 

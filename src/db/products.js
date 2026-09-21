@@ -1,22 +1,66 @@
 import { db } from './index'
 import { getShopId } from './shop'
+import { getLowStockDefault } from './settings'
+
+async function assertCategoryNameFree(name, exceptId = null) {
+  const existing = await listCategories()
+  const wanted = name.trim().toLowerCase()
+  const clash = existing.some((c) => c.id !== exceptId && c.name.toLowerCase() === wanted)
+  if (clash) {
+    const err = new Error('Category already exists')
+    err.name = 'ConstraintError'
+    throw err
+  }
+}
 
 export async function addCategory({ name, icon = null }) {
+  const clean = name.trim()
+  if (!clean) throw new Error('Category name is required')
+  await assertCategoryNameFree(clean)
+
   const shopId = await getShopId()
-  const category = {
-    id: crypto.randomUUID(),
-    shopId,
-    name: name.trim(),
-    icon,
-    synced: 0,
-  }
+  const category = { id: crypto.randomUUID(), shopId, name: clean, icon, synced: 0 }
   await db.categories.add(category)
   return category
+}
+
+export async function listCategoriesWithCounts() {
+  const [categories, products] = await Promise.all([listCategories(), listProducts()])
+
+  const counts = new Map()
+  for (const p of products) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1)
+
+  return categories.map((c) => ({ ...c, productCount: counts.get(c.id) ?? 0 }))
+}
+
+export async function renameCategory(id, name) {
+  const clean = name.trim()
+  if (!clean) throw new Error('Category name is required')
+  await assertCategoryNameFree(clean, id)
+
+  const count = await db.categories.update(id, { name: clean, synced: 0 })
+  if (count === 0) throw new Error('Category not found')
+}
+
+export async function deleteCategory(id) {
+  const inUse = await db.products.where('categoryId').equals(id).count()
+  if (inUse > 0) {
+    throw new Error(`${inUse} ${inUse === 1 ? 'product uses' : 'products use'} this category. Move them first.`)
+  }
+  await db.categories.delete(id)
 }
 
 export async function listCategories() {
   const shopId = await getShopId()
   return db.categories.where('shopId').equals(shopId).sortBy('name')
+}
+
+function toNumberOrNull(value) {
+  return value === null || value === undefined || value === '' ? null : Number(value)
+}
+
+function withLowStockAt(product, defaultLevel) {
+  return { ...product, lowStockAt: product.lowStockLevel ?? defaultLevel }
 }
 
 export async function addProduct({
@@ -76,7 +120,11 @@ export async function getProduct(id) {
 
 export async function listProducts() {
   const shopId = await getShopId()
-  return db.products.where('shopId').equals(shopId).sortBy('name')
+  const [products, defaultLevel] = await Promise.all([
+    db.products.where('shopId').equals(shopId).sortBy('name'),
+    getLowStockDefault(),
+  ])
+  return products.map((p) => withLowStockAt(p, defaultLevel))
 }
 
 export async function updateProduct(id, changes) {
@@ -92,6 +140,7 @@ export async function updateProduct(id, changes) {
     const value = updates.buyingPrice
     updates.buyingPrice = value === null || value === '' ? null : Number(value)
   }
+  if ('lowStockLevel' in updates) updates.lowStockLevel = toNumberOrNull(updates.lowStockLevel)
 
   const count = await db.products.update(id, {
     ...updates,
@@ -119,6 +168,12 @@ export async function getProductDetails(id) {
   const product = await db.products.get(id)
   if (!product) return null
 
-  const category = await db.categories.get(product.categoryId)
-  return { product, categoryName: category?.name ?? 'Uncategorised' }
+  const [category, defaultLevel] = await Promise.all([
+    db.categories.get(product.categoryId),
+    getLowStockDefault(),
+  ])
+  return {
+    product: withLowStockAt(product, defaultLevel),
+    categoryName: category?.name ?? 'Uncategorised',
+  }
 }

@@ -5,6 +5,12 @@ import Placeholder from './components/Placeholder'
 import Home from './features/lookup/Home'
 import Search from './features/lookup/Search'
 import ProductDetails from './features/lookup/ProductDetails'
+import Products from './features/owner/Products'
+import AddProduct from './features/owner/AddProduct'
+import EditProduct from './features/owner/EditProduct'
+import Categories from './features/owner/Categories'
+import Stock from './features/owner/Stock'
+import StockUpdate from './features/owner/StockUpdate'
 
 function OwnerOnly() {
   const { role } = useRole()
@@ -23,9 +29,12 @@ export default function App() {
             
             <Route path="owner" element={<OwnerOnly />}>
               <Route index element={<Placeholder title="Owner Dashboard" />} />
-              <Route path="products" element={<Placeholder title="Products" />} />
-              <Route path="stock" element={<Placeholder title="Stock Update" />} />
-              <Route path="categories" element={<Placeholder title="Categories" />} />
+              <Route path="products" element={<Products />} />
+              <Route path="products/new" element={<AddProduct />} />
+              <Route path="products/:id/edit" element={<EditProduct />} />
+              <Route path="stock" element={<Stock />} />
+              <Route path="stock/:id" element={<StockUpdate />} />
+              <Route path="categories" element={<Categories />} />
               <Route path="settings" element={<Placeholder title="Settings" />} />
             </Route>
 
