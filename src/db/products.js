@@ -115,3 +115,10 @@ export async function searchProducts(query) {
       (categoryNames.get(p.categoryId) ?? '').includes(q)
   )
 }
+export async function getProductDetails(id) {
+  const product = await db.products.get(id)
+  if (!product) return null
+
+  const category = await db.categories.get(product.categoryId)
+  return { product, categoryName: category?.name ?? 'Uncategorised' }
+}
