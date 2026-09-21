@@ -7,7 +7,7 @@ export async function recordStockMovement(
   productId,
   type,
   quantity,
-  { note = '', allowNegative = false } = {}
+  { note = '', allowNegative = false, unitPrice = null, listPrice = null } = {}
 ) {
   if (!MOVEMENT_TYPES.includes(type)) {
     throw new Error(`Unknown movement type: ${type}`)
@@ -19,6 +19,12 @@ export async function recordStockMovement(
   }
   if (type === 'restock' && change < 0) throw new Error('A restock must be positive')
   if (type === 'sale' && change > 0) throw new Error('A sale must be negative')
+
+  for (const price of [unitPrice, listPrice]) {
+    if (price !== null && (!Number.isFinite(price) || price < 0)) {
+      throw new Error('Prices must be numbers, 0 or more')
+    }
+  }
 
   const shopId = await getShopId()
   const timestamp = new Date().toISOString()
@@ -39,6 +45,8 @@ export async function recordStockMovement(
       type,
       quantity: change,
       note,
+      unitPrice,
+      listPrice,
       timestamp,
       synced: 0,
     })
@@ -59,4 +67,48 @@ export async function listMovements(productId) {
     .equals(productId)
     .sortBy('timestamp')
   return rows.reverse() // newest first
+}
+
+export async function applyStockCount(counts) {
+  for (const { counted } of counts) {
+    if (!Number.isInteger(counted) || counted < 0) {
+      throw new Error('Counts must be whole numbers, 0 or more')
+    }
+  }
+
+  const shopId = await getShopId()
+  const timestamp = new Date().toISOString()
+
+  return db.transaction('rw', db.products, db.stockMovements, async () => {
+    let adjusted = 0
+
+    for (const { productId, counted } of counts) {
+      const product = await db.products.get(productId)
+      if (!product) continue
+
+      const difference = counted - product.stock
+      if (difference === 0) continue
+
+      await db.stockMovements.add({
+        id: crypto.randomUUID(),
+        shopId,
+        productId,
+        type: 'adjustment',
+        quantity: difference,
+        note: 'Stock count',
+        timestamp,
+        synced: 0,
+      })
+
+      await db.products.update(productId, {
+        stock: counted,
+        lastUpdated: timestamp,
+        synced: 0,
+      })
+
+      adjusted++
+    }
+
+    return adjusted
+  })
 }

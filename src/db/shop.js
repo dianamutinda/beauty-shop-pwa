@@ -22,3 +22,14 @@ export function getShopId() {
   if (!shopIdPromise) shopIdPromise = loadOrCreateShopId()
   return shopIdPromise
 }
+
+export async function getShop() {
+  const id = await getShopId()
+  return db.shops.get(id)
+}
+
+export async function renameShop(name) {
+  const clean = name.trim()
+  if (!clean) throw new Error('Shop name is required')
+  await db.shops.update(await getShopId(), { name: clean })
+}

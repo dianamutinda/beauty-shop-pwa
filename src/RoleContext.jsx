@@ -5,7 +5,7 @@ const RoleContext = createContext(null)
 export function RoleProvider({ children }) {
   const [role, setRole] = useState(() => {
     try {
-      return localStorage.getItem('role') === 'owner' ? 'owner' : 'worker'
+      return sessionStorage.getItem('role') === 'owner' ? 'owner' : 'worker'
     } catch {
       return 'worker'
     }
@@ -14,7 +14,7 @@ export function RoleProvider({ children }) {
   function switchRole(next) {
     setRole(next)
     try {
-      localStorage.setItem('role', next)
+      sessionStorage.setItem('role', next)
     } catch {
       /* storage unavailable, the role just won't persist */
     }

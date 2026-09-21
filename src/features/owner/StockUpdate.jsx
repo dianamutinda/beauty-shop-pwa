@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getProductDetails } from '../../db/products'
 import { listMovements, recordStockMovement } from '../../db/stock'
-import { formatUpdated, stockStatus } from '../../lib/format'
+import { formatKsh, formatUpdated, stockStatus } from '../../lib/format'
 
 const REASONS = {
   add: [
@@ -36,6 +36,7 @@ export default function StockUpdate() {
   const [mode, setMode] = useState('add')
   const [reasonIndex, setReasonIndex] = useState(0)
   const [quantity, setQuantity] = useState('')
+  const [price, setPrice] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -45,13 +46,20 @@ export default function StockUpdate() {
   if (details === null) return <p className="text-sm text-gray-500">This product no longer exists.</p>
 
   const { product } = details
-  const status = stockStatus(product.stock)
+  const status = stockStatus(product.stock, product.lowStockAt)
+  const isSale = mode === 'remove' && REASONS.remove[reasonIndex].type === 'sale'
 
   function switchMode(next) {
     setMode(next)
     setReasonIndex(0)
+    setPrice('')
     setError('')
     setMessage('')
+  }
+
+  function changeReason(e) {
+    setReasonIndex(Number(e.target.value))
+    setPrice('')
   }
 
   async function handleSubmit(e) {
@@ -69,11 +77,27 @@ export default function StockUpdate() {
     const signed = mode === 'add' ? qty : -qty
     const fullNote = [reason.label, note.trim()].filter(Boolean).join(': ')
 
+    let unitPrice = null
+    let listPrice = null
+    if (reason.type === 'sale') {
+      listPrice = product.sellingPrice
+      unitPrice = price === '' ? listPrice : Number(price)
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        setError('Enter the price per unit as a number, 0 or more.')
+        return
+      }
+    }
+
     setSaving(true)
     try {
-      const newStock = await recordStockMovement(id, reason.type, signed, { note: fullNote })
+      const newStock = await recordStockMovement(id, reason.type, signed, {
+        note: fullNote,
+        unitPrice,
+        listPrice,
+      })
       setMessage(`Saved. Stock is now ${newStock}.`)
       setQuantity('')
+      setPrice('')
       setNote('')
     } catch (err) {
       setError(err.message || 'Could not save. Please try again.')
@@ -113,7 +137,7 @@ export default function StockUpdate() {
           ))}
         </div>
 
-        <select className={inputClass} value={reasonIndex} onChange={(e) => setReasonIndex(Number(e.target.value))}>
+        <select className={inputClass} value={reasonIndex} onChange={changeReason}>
           {REASONS[mode].map((r, i) => (
             <option key={r.label} value={i}>{r.label}</option>
           ))}
@@ -128,6 +152,18 @@ export default function StockUpdate() {
           onChange={(e) => setQuantity(e.target.value)}
           placeholder="Quantity"
         />
+
+        {isSale && (
+          <input
+            className={inputClass}
+            type="number"
+            inputMode="numeric"
+            min="0"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder={`Price per unit (list: ${product.sellingPrice})`}
+          />
+        )}
 
         <input
           className={inputClass}
@@ -158,7 +194,15 @@ export default function StockUpdate() {
               <li key={m.id} className="flex items-center justify-between px-4 py-3">
                 <div>
                   <p className="text-sm text-gray-900">{m.note || TYPE_LABELS[m.type] || m.type}</p>
-                  <p className="text-xs text-gray-400">{formatUpdated(m.timestamp)}</p>
+                  <p className="text-xs text-gray-400">
+                    {formatUpdated(m.timestamp)}
+                    {m.type === 'sale' && m.unitPrice != null && (
+                      <>
+                        {' '}· @ {formatKsh(m.unitPrice)}
+                        {m.listPrice != null && m.unitPrice < m.listPrice && ` (list ${m.listPrice})`}
+                      </>
+                    )}
+                  </p>
                 </div>
                 <p className={`text-sm font-semibold ${m.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {m.quantity > 0 ? '+' : ''}{m.quantity}

@@ -11,6 +11,9 @@ import EditProduct from './features/owner/EditProduct'
 import Categories from './features/owner/Categories'
 import Stock from './features/owner/Stock'
 import StockUpdate from './features/owner/StockUpdate'
+import Count from './features/owner/Count'
+import Dashboard from './features/owner/Dashboard'
+import Settings from './features/owner/Settings'
 
 function OwnerOnly() {
   const { role } = useRole()
@@ -28,14 +31,15 @@ export default function App() {
             <Route path="product/:id" element={<ProductDetails />} />
             
             <Route path="owner" element={<OwnerOnly />}>
-              <Route index element={<Placeholder title="Owner Dashboard" />} />
+              <Route index element={<Dashboard />} />
               <Route path="products" element={<Products />} />
               <Route path="products/new" element={<AddProduct />} />
               <Route path="products/:id/edit" element={<EditProduct />} />
               <Route path="stock" element={<Stock />} />
               <Route path="stock/:id" element={<StockUpdate />} />
+              <Route path="count" element={<Count />} />
               <Route path="categories" element={<Categories />} />
-              <Route path="settings" element={<Placeholder title="Settings" />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

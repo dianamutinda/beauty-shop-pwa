@@ -1,5 +1,10 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useRole } from '../RoleContext'
+import { getShop } from '../db/shop'
+import { hasPin } from '../db/settings'
+import PinDialog from './PinDialog'
 
 const NAV = {
   worker: [
@@ -18,17 +23,28 @@ const NAV = {
 export default function Layout() {
   const { role, switchRole } = useRole()
   const navigate = useNavigate()
+  const shop = useLiveQuery(() => getShop(), [])
+  const [askingPin, setAskingPin] = useState(false)
 
-  function toggleRole() {
-    const next = role === 'owner' ? 'worker' : 'owner'
+  function go(next) {
     switchRole(next)
     navigate(next === 'owner' ? '/owner' : '/')
+  }
+
+  async function toggleRole() {
+    if (role === 'owner') {
+      go('worker')
+    } else if (await hasPin()) {
+      setAskingPin(true)
+    } else {
+      go('owner')
+    }
   }
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-pink-50">
       <header className="flex items-center justify-between bg-white px-4 py-3 shadow-sm">
-        <h1 className="text-lg font-semibold text-pink-700">Shop</h1>
+        <h1 className="truncate text-lg font-semibold text-pink-700">{shop?.name ?? ''}</h1>
         <button
           onClick={toggleRole}
           className="rounded-full border border-pink-300 px-3 py-1 text-sm text-pink-700"
@@ -57,6 +73,16 @@ export default function Layout() {
           </NavLink>
         ))}
       </nav>
+
+      {askingPin && (
+        <PinDialog
+          onCancel={() => setAskingPin(false)}
+          onSuccess={() => {
+            setAskingPin(false)
+            go('owner')
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { searchProducts } from '../../db/products'
 import { getLowStockDefault, setLowStockDefault } from '../../db/settings'
@@ -19,7 +19,8 @@ function matchesFilter(filter, product) {
 
 export default function Stock() {
   const [text, setText] = useState('')
-  const [filter, setFilter] = useState('all')
+  const [params] = useSearchParams()
+  const [filter, setFilter] = useState(params.get('filter') === 'low' ? 'low' : 'all')
 
   const products = useLiveQuery(() => searchProducts(text), [text])
   const lowDefault = useLiveQuery(() => getLowStockDefault(), [])
@@ -27,7 +28,12 @@ export default function Stock() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-pink-700">Stock Update</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-pink-700">Stock Update</h2>
+        <Link to="/owner/count" className="rounded-xl border border-pink-300 px-3 py-1 text-sm text-pink-700">
+          Count stock
+        </Link>
+      </div>
 
       <input
         type="search"
