@@ -1,43 +1,36 @@
-import { useState } from 'react'
-import { db, recordStockMovement } from './db'
+import { addCategory, addProduct, searchProducts, getProduct } from './db/products'
+import { recordStockMovement, listMovements } from './db/stock'
 
-function App() {
-  const [productId, setProductId] = useState(null)
-
-  async function handleCreateProduct() {
-    const newId = await db.products.add({
+export default function App() {
+  async function test() {
+    const cat = await addCategory({ name: 'Face Care' })
+    await addProduct({
       sku: 'FC001',
       name: 'Face Cream',
-      category: 'Face Care',
-      sellingPrice: 350,
-      stock: 12,
-      lastUpdated: new Date().toISOString(),
-      synced: false,
+      categoryId: cat.id,
+      sellingPrice: '350',
+      stock: '12',
     })
-    setProductId(newId)
-    console.log('Created product:', newId)
-  }
-
-  async function handleAddStock() {
-    if (!productId) {
-      console.log('Create a product first')
-      return
-    }
-    await recordStockMovement(productId, 'restock', 10)
-    const updated = await db.products.get(productId)
-    console.log('Stock now:', updated.stock)
+    console.log('done')
   }
 
   return (
-    <div className="p-4 space-x-2">
-      <button onClick={handleCreateProduct} className="bg-gray-600 text-white px-4 py-2 rounded">
-        Create Product
-      </button>
-      <button onClick={handleAddStock} className="bg-pink-600 text-white px-4 py-2 rounded">
-        Add Stock (+10)
-      </button>
-    </div>
+    <button className="m-4 rounded bg-pink-600 px-4 py-2 text-white" onClick={test}>
+      Test add
+    </button>
   )
 }
 
-export default App
+async function testStock() {
+  const [product] = await searchProducts('face')
+  await recordStockMovement(product.id, 'restock', 10)
+  console.log((await getProduct(product.id)).stock) // 22
+
+  try {
+    await recordStockMovement(product.id, 'sale', -100)
+  } catch (e) {
+    console.log(e.message) // Only 22 in stock for Face Cream
+  }
+
+  console.log((await listMovements(product.id)).length) // 2
+}

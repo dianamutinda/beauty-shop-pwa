@@ -10,8 +10,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Beauty Shop',
-        short_name: 'Beauty Shop',
+        name: 'Shop Stock & Prices',
+        short_name: 'Shop',
         description: 'Price checker and inventory management',
         theme_color: '#db2777', // pink, matching your mockup
         background_color: '#fdf2f8',
