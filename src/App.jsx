@@ -1,7 +1,6 @@
 import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { RoleProvider, useRole } from './RoleContext'
 import Layout from './components/Layout'
-import Placeholder from './components/Placeholder'
 import Home from './features/lookup/Home'
 import Search from './features/lookup/Search'
 import ProductDetails from './features/lookup/ProductDetails'
@@ -14,6 +13,7 @@ import StockUpdate from './features/owner/StockUpdate'
 import Count from './features/owner/Count'
 import Dashboard from './features/owner/Dashboard'
 import Settings from './features/owner/Settings'
+import SaleFlow from './features/lookup/SaleFlow'
 
 function OwnerOnly() {
   const { role } = useRole()
@@ -29,6 +29,7 @@ export default function App() {
             <Route index element={<Home />} />
             <Route path="search" element={<Search />} />
             <Route path="product/:id" element={<ProductDetails />} />
+            <Route path="sale" element={<SaleFlow />} />
             
             <Route path="owner" element={<OwnerOnly />}>
               <Route index element={<Dashboard />} />

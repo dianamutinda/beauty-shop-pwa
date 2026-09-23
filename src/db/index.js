@@ -9,3 +9,7 @@ db.version(1).stores({
   products: 'id, shopId, &[shopId+sku], name, categoryId, stock, synced',
   stockMovements: 'id, shopId, productId, type, timestamp, synced',
 })
+
+db.version(2).stores({
+  stockMovements: 'id, shopId, productId, type, timestamp, synced, saleId',
+})

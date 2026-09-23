@@ -112,3 +112,62 @@ export async function applyStockCount(counts) {
     return adjusted
   })
 }
+export async function recordSale(items, paymentMethod = null) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('A sale needs at least one item')
+  }
+  for (const { productId, quantity, unitPrice, listPrice } of items) {
+    if (!productId) throw new Error('Each item needs a productId')
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new Error('Quantity must be a whole number greater than zero')
+    }
+    for (const price of [unitPrice, listPrice]) {
+      if (price !== null && price !== undefined && (!Number.isFinite(price) || price < 0)) {
+        throw new Error('Prices must be numbers, 0 or more')
+      }
+    }
+  }
+
+  const shopId = await getShopId()
+  const saleId = crypto.randomUUID()
+  const timestamp = new Date().toISOString()
+
+  return db.transaction('rw', db.products, db.stockMovements, async () => {
+    const results = []
+
+    for (const { productId, quantity, unitPrice, listPrice, note } of items) {
+      const product = await db.products.get(productId)
+      if (!product) throw new Error(`Product ${productId} not found`)
+
+      const newStock = product.stock - quantity
+      if (newStock < 0) {
+        throw new Error(`Only ${product.stock} in stock for ${product.name}`)
+      }
+
+      await db.stockMovements.add({
+        id: crypto.randomUUID(),
+        shopId,
+        productId,
+        type: 'sale',
+        quantity: -quantity,
+        note: note || 'Sold',
+        unitPrice: unitPrice ?? product.sellingPrice,
+        listPrice: listPrice ?? product.sellingPrice,
+        timestamp,
+        saleId,
+        paymentMethod,
+        synced: 0,
+      })
+
+      await db.products.update(productId, {
+        stock: newStock,
+        lastUpdated: timestamp,
+        synced: 0,
+      })
+
+      results.push({ productId, newStock })
+    }
+
+    return { saleId, results }
+  })
+}

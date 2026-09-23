@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { getProductDetails } from '../../db/products'
 import { addRecentProduct } from '../../db/recent'
 import { formatKsh, formatUpdated, stockStatus } from '../../lib/format'
+import SaleForm from './SaleForm'
 
 export default function ProductDetails() {
   const { id } = useParams()
@@ -29,7 +30,7 @@ export default function ProductDetails() {
   }
 
   const { product, categoryName } = details
-  const status = stockStatus(product.stock)
+  const status = stockStatus(product.stock, product.lowStockAt)
 
   return (
     <div className="space-y-4">
@@ -57,6 +58,8 @@ export default function ProductDetails() {
           <dd className="text-gray-900">{formatUpdated(product.lastUpdated)}</dd>
         </div>
       </dl>
+
+      <SaleForm product={product} />
 
       <button onClick={() => navigate(-1)} className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white">
         Back
