@@ -14,6 +14,7 @@ import Count from './features/owner/Count'
 import Dashboard from './features/owner/Dashboard'
 import Settings from './features/owner/Settings'
 import SaleFlow from './features/lookup/SaleFlow'
+import SalesToday from './features/lookup/SalesToday'
 
 function OwnerOnly() {
   const { role } = useRole()
@@ -30,6 +31,8 @@ export default function App() {
             <Route path="search" element={<Search />} />
             <Route path="product/:id" element={<ProductDetails />} />
             <Route path="sale" element={<SaleFlow />} />
+            <Route path="sales-today" element={<SalesToday />} />
+
             
             <Route path="owner" element={<OwnerOnly />}>
               <Route index element={<Dashboard />} />

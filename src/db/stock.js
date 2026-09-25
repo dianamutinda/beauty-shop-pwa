@@ -171,3 +171,97 @@ export async function recordSale(items, paymentMethod = null) {
     return { saleId, results }
   })
 }
+
+export async function voidSale(saleId) {
+  const movements = await db.stockMovements.where('saleId').equals(saleId).toArray()
+
+  if (movements.length === 0) {
+    throw new Error(`No sale found with id ${saleId}`)
+  }
+  if (movements.some((m) => m.voidedAt)) {
+    throw new Error('This sale has already been voided')
+  }
+
+  const shopId = await getShopId()
+  const timestamp = new Date().toISOString()
+
+  return db.transaction('rw', db.products, db.stockMovements, async () => {
+    for (const original of movements) {
+      const reversalQty = -original.quantity // sale was negative, this flips it positive
+
+      const product = await db.products.get(original.productId)
+      if (!product) throw new Error(`Product ${original.productId} not found`)
+
+      const newStock = product.stock + reversalQty
+
+      await db.stockMovements.add({
+        id: crypto.randomUUID(),
+        shopId,
+        productId: original.productId,
+        type: 'void',
+        quantity: reversalQty,
+        note: 'Void of sale',
+        unitPrice: original.unitPrice,
+        listPrice: original.listPrice,
+        timestamp,
+        saleId, // same saleId, stays grouped with what it's reversing
+        voidOf: original.id,
+        paymentMethod: original.paymentMethod,
+        synced: 0,
+      })
+
+      await db.products.update(original.productId, {
+        stock: newStock,
+        lastUpdated: timestamp,
+        synced: 0,
+      })
+
+      // mark the original line as voided so it can't be voided twice
+      await db.stockMovements.update(original.id, { voidedAt: timestamp })
+    }
+
+    return { saleId, voidedAt: timestamp }
+  })
+}
+export async function listTodaysSales() {
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
+  const startIso = startOfDay.toISOString()
+
+  // Filter (not an indexed .where()) because timestamp isn't an indexed
+  // field on stockMovements — fine at one shop's daily volume.
+  const movements = await db.stockMovements
+    .filter((m) => m.type === 'sale' && !!m.saleId && m.timestamp >= startIso)
+    .toArray()
+
+  const productIds = [...new Set(movements.map((m) => m.productId))]
+  const products = await db.products.bulkGet(productIds)
+  const productById = new Map(products.filter(Boolean).map((p) => [p.id, p]))
+
+  const bySale = new Map()
+  for (const m of movements) {
+    if (!bySale.has(m.saleId)) {
+      bySale.set(m.saleId, {
+        saleId: m.saleId,
+        timestamp: m.timestamp,
+        paymentMethod: m.paymentMethod,
+        voided: false,
+        items: [],
+        total: 0,
+      })
+    }
+    const sale = bySale.get(m.saleId)
+    if (m.voidedAt) sale.voided = true
+
+    const quantity = -m.quantity // sale movements store quantity as negative
+    sale.items.push({
+      productId: m.productId,
+      name: productById.get(m.productId)?.name ?? 'Unknown product',
+      quantity,
+      unitPrice: m.unitPrice,
+    })
+    sale.total += quantity * (m.unitPrice ?? 0)
+  }
+
+  return [...bySale.values()].sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+}

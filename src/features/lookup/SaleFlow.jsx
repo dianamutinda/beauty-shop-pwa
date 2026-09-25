@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchProducts } from '../../db/products'
-import { recordSale } from '../../db/stock'
+import { recordSale, voidSale } from '../../db/stock'
 import { formatKsh } from '../../lib/format'
 import { useBasket } from './useBasket'
 
@@ -27,6 +27,18 @@ export default function SaleFlow() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(null) // { saleId, results }
+
+  // undo flow
+  const [undoSecondsLeft, setUndoSecondsLeft] = useState(10)
+  const [showUndoModal, setShowUndoModal] = useState(false)
+  const [voiding, setVoiding] = useState(false)
+  const [voided, setVoided] = useState(false)
+
+  useEffect(() => {
+    if (step !== 'confirmation' || voided || undoSecondsLeft <= 0) return
+    const timer = setTimeout(() => setUndoSecondsLeft((s) => s - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [step, undoSecondsLeft, voided])
 
   async function handleSearch(e) {
     const value = e.target.value
@@ -68,10 +80,28 @@ export default function SaleFlow() {
     }
   }
 
+  async function handleUndo() {
+    setVoiding(true)
+    setError('')
+    try {
+      await voidSale(saved.saleId)
+      setVoided(true)
+      setShowUndoModal(false)
+    } catch (err) {
+      setError(err.message || 'Could not undo the sale. Please try again.')
+      setShowUndoModal(false)
+    } finally {
+      setVoiding(false)
+    }
+  }
+
   function startNewSale() {
     basket.clear()
     setPaymentMethod('cash')
     setSaved(null)
+    setUndoSecondsLeft(10)
+    setShowUndoModal(false)
+    setVoided(false)
     setStep('basket')
   }
 
@@ -277,33 +307,101 @@ export default function SaleFlow() {
 
   // ---- Confirmation step ----
   return (
-    <div className="space-y-4 text-center">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-600">
-        ✓
-      </div>
-      <h2 className="text-xl font-semibold text-gray-900">Sale saved!</h2>
+    <div className="relative space-y-4 text-center">
+      {voided ? (
+        <>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-3xl text-gray-500">
+            ↺
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">Sale undone</h2>
+          <p className="text-sm text-gray-500">The items have been returned to stock.</p>
+        </>
+      ) : (
+        <>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-600">
+            ✓
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">Sale saved!</h2>
 
-      <div className="rounded-xl border border-pink-100 bg-white p-4 text-sm">
-        <p className="text-gray-500">Total</p>
-        <p className="text-2xl font-bold text-pink-700">{formatKsh(basket.total)}</p>
-        <p className="mt-2 text-gray-500">Payment method</p>
-        <p className="text-gray-900">
-          {PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label}
-        </p>
-      </div>
+          <div className="rounded-xl border border-pink-100 bg-white p-4 text-sm">
+            <p className="text-gray-500">Total</p>
+            <p className="text-2xl font-bold text-pink-700">{formatKsh(basket.total)}</p>
+            <p className="mt-2 text-gray-500">Payment method</p>
+            <p className="text-gray-900">
+              {PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label}
+            </p>
+          </div>
+        </>
+      )}
 
-      <button
-        onClick={startNewSale}
-        className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white"
-      >
-        Next sale
-      </button>
-      <button
-        onClick={() => navigate('/')}
-        className="w-full rounded-xl border border-pink-200 py-3 text-sm text-pink-700"
-      >
-        Back to Home
-      </button>
+      {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+
+      {!voided && (
+        <>
+          <button
+            onClick={startNewSale}
+            className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white"
+          >
+            Next sale
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full rounded-xl border border-pink-200 py-3 text-sm text-pink-700"
+          >
+            Back to Home
+          </button>
+          {undoSecondsLeft > 0 && (
+            <button
+              onClick={() => setShowUndoModal(true)}
+              className="w-full rounded-xl border border-pink-100 py-3 text-sm text-pink-400"
+            >
+              Undo ({undoSecondsLeft}s)
+            </button>
+          )}
+        </>
+      )}
+
+      {voided && (
+        <button
+          onClick={() => navigate('/')}
+          className="w-full rounded-xl border border-pink-200 py-3 text-sm text-pink-700"
+        >
+          Back to Home
+        </button>
+      )}
+
+      {showUndoModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+          <div className="w-full max-w-sm rounded-t-2xl bg-white p-6 text-left sm:rounded-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-lg font-semibold text-gray-900">Undo this sale?</span>
+              <button
+                onClick={() => setShowUndoModal(false)}
+                className="text-gray-400"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <p className="mb-5 text-sm text-gray-500">
+              The items will be returned to stock and the sale will be removed.
+            </p>
+            <button
+              onClick={handleUndo}
+              disabled={voiding}
+              className="mb-2 w-full rounded-xl bg-pink-600 py-3 text-sm text-white disabled:opacity-60"
+            >
+              {voiding ? 'Undoing...' : 'Undo'}
+            </button>
+            <button
+              onClick={() => setShowUndoModal(false)}
+              className="w-full rounded-xl border border-pink-200 py-3 text-sm text-pink-700"
+            >
+              Keep sale
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
