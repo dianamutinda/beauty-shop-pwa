@@ -1,13 +1,9 @@
-
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchProducts } from '../../db/products'
 import { recordSale, voidSale } from '../../db/stock'
 import { formatKsh } from '../../lib/format'
 import { useBasketContext } from './BasketContext'
-
-const inputClass =
-  'w-full rounded-xl border border-pink-200 bg-white px-4 py-3 text-sm outline-none focus:border-pink-400'
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash' },
@@ -21,86 +17,102 @@ export default function SaleFlow() {
   const basket = useBasketContext()
 
   const [step, setStep] = useState('basket')
+
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('cash')
+
+  const [paymentMethod, setPaymentMethod] = useState(null)
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [saved, setSaved] = useState(null) // { saleId, results }
 
-  // undo flow
-  const [undoSecondsLeft, setUndoSecondsLeft] = useState(10)
+  const [saved, setSaved] = useState(null)
+
+  const [undoSecondsLeft, setUndoSecondsLeft] = useState(0)
   const [showUndoModal, setShowUndoModal] = useState(false)
   const [voiding, setVoiding] = useState(false)
   const [voided, setVoided] = useState(false)
 
-  useEffect(() => {
-    if (step !== 'confirmation' || voided || undoSecondsLeft <= 0) return
-
-    const timer = setTimeout(() => setUndoSecondsLeft((s) => s - 1), 1000)
-
-    return () => clearTimeout(timer)
-  }, [step, undoSecondsLeft, voided])
-
   async function handleSearch(e) {
     const value = e.target.value
+
     setQuery(value)
+    setError('')
 
     if (!value.trim()) {
       setResults([])
+      setSearching(false)
       return
     }
 
     setSearching(true)
 
-    const rows = await searchProducts(value)
-
-    setResults(rows)
-    setSearching(false)
+    try {
+      const found = await searchProducts(value)
+      setResults(found ?? [])
+    } catch (err) {
+      console.error(err)
+      setResults([])
+      setError('Could not search products.')
+    } finally {
+      setSearching(false)
+    }
   }
 
   function handleAdd(product) {
     basket.addItem(product)
     setQuery('')
     setResults([])
+    setError('')
   }
 
   async function handleConfirm() {
-    setError('')
+    if (basket.items.length === 0) {
+      setError('Add at least one product before saving the sale.')
+      return
+    }
+
     setSaving(true)
+    setError('')
 
     try {
-      const items = basket.items.map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-        listPrice: i.sellingPrice,
+      const items = basket.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        listPrice: item.sellingPrice,
       }))
 
       const result = await recordSale(items, paymentMethod)
 
       setSaved(result)
+      setVoided(false)
+      setUndoSecondsLeft(10)
       setStep('confirmation')
     } catch (err) {
-      setError(err.message || 'Could not save the sale. Please try again.')
-      setStep('basket')
+      console.error(err)
+      setError(err?.message || 'Could not save the sale.')
     } finally {
       setSaving(false)
     }
   }
 
   async function handleUndo() {
+    if (!saved?.saleId) return
+
     setVoiding(true)
     setError('')
 
     try {
       await voidSale(saved.saleId)
+
       setVoided(true)
       setShowUndoModal(false)
+      setUndoSecondsLeft(0)
     } catch (err) {
-      setError(err.message || 'Could not undo the sale. Please try again.')
-      setShowUndoModal(false)
+      console.error(err)
+      setError(err?.message || 'Could not undo the sale.')
     } finally {
       setVoiding(false)
     }
@@ -108,72 +120,114 @@ export default function SaleFlow() {
 
   function startNewSale() {
     basket.clear()
-    setPaymentMethod('cash')
+
+    setQuery('')
+    setResults([])
+    setPaymentMethod(null)
+
     setSaved(null)
-    setUndoSecondsLeft(10)
+    setUndoSecondsLeft(0)
     setShowUndoModal(false)
     setVoided(false)
+
+    setError('')
     setStep('basket')
   }
 
-  // ---- Basket step ----
+  useEffect(() => {
+    if (step !== 'confirmation' || !saved || voided) {
+      return
+    }
+
+    const timer = setInterval(() => {
+      setUndoSecondsLeft((seconds) => {
+        if (seconds <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+
+        return seconds - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [step, saved, voided])
+
   if (step === 'basket') {
     return (
-      <div className="space-y-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-sm text-pink-600"
-        >
-          ‹ Back
-        </button>
+      <div className="space-y-5">
+        <div>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="mb-3 text-sm text-pink-600"
+          >
+            ‹ Back
+          </button>
 
-        <h2 className="text-xl font-semibold text-gray-900">New Sale</h2>
+          <h2 className="text-2xl font-semibold text-gray-900">
+            New Sale
+          </h2>
 
-        {error && (
-          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+          <p className="mt-1 text-sm text-gray-500">
+            Add the products the customer is buying.
           </p>
-        )}
+        </div>
 
-        <input
-          className={inputClass}
-          value={query}
-          onChange={handleSearch}
-          placeholder="Search by name, SKU or category..."
-        />
+        <div>
+          <input
+            type="search"
+            className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3.5 text-sm outline-none placeholder:text-gray-400 focus:border-pink-400"
+            value={query}
+            onChange={handleSearch}
+            placeholder="Search products, SKU or category..."
+          />
 
-        {searching && (
-          <p className="text-sm text-gray-400">Searching...</p>
-        )}
+          {searching && (
+            <p className="mt-2 text-xs text-gray-400">
+              Searching...
+            </p>
+          )}
+        </div>
 
         {results.length > 0 && (
-          <ul className="divide-y divide-pink-100 rounded-xl border border-pink-100 bg-white">
-            {results.map((p) => (
+          <ul className="overflow-hidden rounded-2xl border border-pink-100 bg-white">
+            {results.map((product) => (
               <li
-                key={p.id}
-                className="flex items-center justify-between px-4 py-3"
+                key={product.id}
+                className="flex items-center justify-between gap-4 border-b border-pink-100 px-4 py-3.5 last:border-b-0"
               >
-                <div>
-                  <p className="text-sm text-gray-900">{p.name}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-900">
+                    {product.name}
+                  </p>
 
-                  <p className="text-xs text-gray-400">
-                    SKU: {p.sku} · {formatKsh(p.sellingPrice)} ·{' '}
-                    <span
-                      className={
-                        p.stock <= 0 ? 'text-red-500' : ''
-                      }
-                    >
-                      {p.stock <= 0
-                        ? 'Out of stock'
-                        : `${p.stock} in stock`}
-                    </span>
+                  <p className="mt-1 text-xs text-gray-400">
+                    SKU: {product.sku}
+                  </p>
+
+                  <p className="mt-1 text-sm font-semibold text-pink-700">
+                    {formatKsh(product.sellingPrice)}
+                  </p>
+
+                  <p
+                    className={`mt-0.5 text-xs ${
+                      product.stock <= 0
+                        ? 'text-red-500'
+                        : 'text-gray-400'
+                    }`}
+                  >
+                    {product.stock <= 0
+                      ? 'Out of stock'
+                      : `${product.stock} in stock`}
                   </p>
                 </div>
 
                 <button
-                  onClick={() => handleAdd(p)}
-                  disabled={p.stock <= 0}
-                  className="rounded-xl bg-pink-600 px-3 py-2 text-xs text-white disabled:opacity-40"
+                  type="button"
+                  onClick={() => handleAdd(product)}
+                  disabled={product.stock <= 0}
+                  className="shrink-0 rounded-xl bg-pink-600 px-3.5 py-2 text-xs font-medium text-white disabled:opacity-40"
                 >
                   Add
                 </button>
@@ -182,154 +236,232 @@ export default function SaleFlow() {
           </ul>
         )}
 
-        {basket.items.length > 0 && (
-          <div className="space-y-2 rounded-xl border border-pink-100 bg-white p-4">
-            <h3 className="text-sm font-semibold text-gray-700">
-              Basket
-            </h3>
+        {basket.items.length > 0 ? (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-800">
+                Basket
+              </h3>
 
-            <ul className="divide-y divide-pink-100">
-              {basket.items.map((item) => (
-                <li
-                  key={item.productId}
-                  className="flex items-center justify-between py-3"
-                >
-                  <div>
-                    <p className="text-sm text-gray-900">
-                      {item.name}
-                    </p>
+              <span className="text-xs text-gray-400">
+                {basket.itemCount}{' '}
+                {basket.itemCount === 1 ? 'item' : 'items'}
+              </span>
+            </div>
 
-                    <p className="text-xs text-gray-400">
-                      {formatKsh(item.unitPrice)} each
-                    </p>
-                  </div>
+            <div className="overflow-hidden rounded-2xl border border-pink-100 bg-white">
+              <ul className="divide-y divide-pink-100">
+                {basket.items.map((item) => (
+                  <li
+                    key={item.productId}
+                    className="p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-gray-900">
+                          {item.name}
+                        </p>
 
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() =>
-                          item.quantity <= 1
-                            ? basket.removeItem(item.productId)
-                            : basket.updateQuantity(
-                                item.productId,
-                                item.quantity - 1
-                              )
-                        }
-                        className="h-7 w-7 rounded-full border border-pink-200 text-pink-700"
-                      >
-                        −
-                      </button>
-
-                      <span className="w-6 text-center text-sm">
-                        {item.quantity}
-                      </span>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {formatKsh(item.unitPrice)} each
+                        </p>
+                      </div>
 
                       <button
-                        onClick={() => {
-                          if (item.quantity >= item.stock) return
-
-                          basket.updateQuantity(
-                            item.productId,
-                            item.quantity + 1
-                          )
-                        }}
-                        disabled={item.quantity >= item.stock}
-                        className="h-7 w-7 rounded-full border border-pink-200 text-pink-700 disabled:opacity-40"
-                      >
-                        +
-                      </button>
-
-                      <p className="w-20 text-right text-sm font-semibold text-gray-900">
-                        {formatKsh(
-                          item.quantity * item.unitPrice
-                        )}
-                      </p>
-
-                      <button
+                        type="button"
                         onClick={() =>
                           basket.removeItem(item.productId)
                         }
-                        className="text-gray-400"
-                        aria-label="Remove"
+                        className="shrink-0 text-lg leading-none text-gray-300"
+                        aria-label={`Remove ${item.name}`}
                       >
                         ×
                       </button>
                     </div>
 
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            item.quantity <= 1
+                              ? basket.removeItem(item.productId)
+                              : basket.updateQuantity(
+                                  item.productId,
+                                  item.quantity - 1
+                                )
+                          }
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-pink-200 text-pink-700"
+                        >
+                          −
+                        </button>
+
+                        <span className="w-6 text-center text-sm font-medium">
+                          {item.quantity}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (item.quantity >= item.stock) return
+
+                            basket.updateQuantity(
+                              item.productId,
+                              item.quantity + 1
+                            )
+                          }}
+                          disabled={item.quantity >= item.stock}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-pink-200 text-pink-700 disabled:opacity-40"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formatKsh(
+                          item.quantity * item.unitPrice
+                        )}
+                      </p>
+                    </div>
+
                     {item.quantity >= item.stock && (
-                      <p className="text-xs text-red-500">
-                        Max stock reached
+                      <p className="mt-2 text-xs text-red-500">
+                        Maximum stock reached
                       </p>
                     )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
 
-            <div className="flex justify-between border-t border-pink-100 pt-3 text-sm">
-              <span className="text-gray-500">
-                Items ({basket.itemCount})
-              </span>
+              <div className="border-t border-pink-100 bg-pink-50/50 px-4 py-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">
+                    Total
+                  </span>
 
-              <span className="font-semibold text-gray-900">
-                {formatKsh(basket.total)}
-              </span>
+                  <span className="text-lg font-semibold text-pink-700">
+                    {formatKsh(basket.total)}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <button
+              type="button"
               onClick={() => setStep('payment')}
-              className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white"
+              className="w-full rounded-2xl bg-pink-600 py-3.5 text-sm font-medium text-white"
             >
               Continue
             </button>
-          </div>
+          </section>
+        ) : (
+          !query && (
+            <div className="rounded-2xl border border-dashed border-pink-200 bg-pink-50/40 px-4 py-8 text-center">
+              <p className="text-sm font-medium text-gray-700">
+                Your basket is empty
+              </p>
+
+              <p className="mt-1 text-xs text-gray-400">
+                Search for a product above to add it to this sale.
+              </p>
+            </div>
+          )
         )}
 
-        {basket.items.length === 0 &&
-          results.length === 0 &&
-          !query && (
-            <p className="text-sm text-gray-400">
-              Search for a product to start a sale.
-            </p>
-          )}
+        {error && (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
       </div>
     )
   }
 
-  // ---- Payment method step ----
   if (step === 'payment') {
     return (
-      <div className="space-y-4">
-        <button
-          onClick={() => setStep('basket')}
-          className="text-sm text-pink-600"
-        >
-          ‹ Back
-        </button>
+      <div className="space-y-5">
+        <div>
+          <button
+            type="button"
+            onClick={() => setStep('basket')}
+            className="mb-3 text-sm text-pink-600"
+          >
+            ‹ Back to basket
+          </button>
 
-        <h2 className="text-xl font-semibold text-gray-900">
-          Payment Method
-        </h2>
+          <h2 className="text-2xl font-semibold text-gray-900">
+            Payment
+          </h2>
 
-        <div className="space-y-2">
-          {PAYMENT_METHODS.map((m) => (
-            <button
-              key={m.label}
-              onClick={() => setPaymentMethod(m.value)}
-              className={`w-full rounded-xl border px-4 py-3 text-left text-sm ${
-                paymentMethod === m.value
-                  ? 'border-pink-500 bg-pink-50 text-pink-700'
-                  : 'border-pink-100 bg-white text-gray-700'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
+          <p className="mt-1 text-sm text-gray-500">
+            How did the customer pay?
+          </p>
         </div>
 
+        <div className="rounded-2xl border border-pink-100 bg-white p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">
+              {basket.itemCount}{' '}
+              {basket.itemCount === 1 ? 'item' : 'items'}
+            </span>
+
+            <span className="text-lg font-semibold text-gray-900">
+              {formatKsh(basket.total)}
+            </span>
+          </div>
+        </div>
+
+        <section className="space-y-2">
+          <p className="text-sm font-medium text-gray-700">
+            Payment method
+          </p>
+
+          <div className="space-y-2">
+            {PAYMENT_METHODS.map((method) => {
+              const selected = paymentMethod === method.value
+
+              return (
+                <button
+                  key={method.label}
+                  type="button"
+                  onClick={() => setPaymentMethod(method.value)}
+                  className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
+                    selected
+                      ? 'border-pink-500 bg-pink-50'
+                      : 'border-pink-100 bg-white'
+                  }`}
+                >
+                  <span
+                    className={`text-sm font-medium ${
+                      selected
+                        ? 'text-pink-700'
+                        : 'text-gray-700'
+                    }`}
+                  >
+                    {method.label}
+                  </span>
+
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                      selected
+                        ? 'border-pink-600 bg-pink-600'
+                        : 'border-gray-300 bg-white'
+                    }`}
+                  >
+                    {selected && (
+                      <span className="h-2 w-2 rounded-full bg-white" />
+                    )}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
         <button
+          type="button"
           onClick={() => setStep('review')}
-          className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white"
+          className="w-full rounded-2xl bg-pink-600 py-3.5 text-sm font-medium text-white"
         >
           Continue
         </button>
@@ -337,74 +469,88 @@ export default function SaleFlow() {
     )
   }
 
-  // ---- Review step ----
   if (step === 'review') {
     return (
-      <div className="space-y-4">
-        <button
-          onClick={() => setStep('payment')}
-          className="text-sm text-pink-600"
-        >
-          ‹ Back
-        </button>
+      <div className="space-y-5">
+        <div>
+          <button
+            type="button"
+            onClick={() => setStep('payment')}
+            className="mb-3 text-sm text-pink-600"
+          >
+            ‹ Back to payment
+          </button>
 
-        <h2 className="text-xl font-semibold text-gray-900">
-          Review Sale
-        </h2>
+          <h2 className="text-2xl font-semibold text-gray-900">
+            Review Sale
+          </h2>
 
-        <ul className="divide-y divide-pink-100 rounded-xl border border-pink-100 bg-white">
-          {basket.items.map((item) => (
-            <li
-              key={item.productId}
-              className="flex items-center justify-between px-4 py-3"
-            >
-              <div>
-                <p className="text-sm text-gray-900">
-                  {item.name}
-                </p>
+          <p className="mt-1 text-sm text-gray-500">
+            Check the sale before saving it.
+          </p>
+        </div>
 
-                <p className="text-xs text-gray-400">
-                  Qty: {item.quantity}
-                </p>
-              </div>
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800">
+              Items
+            </h3>
 
-              <p className="text-sm font-semibold text-gray-900">
-                {formatKsh(
-                  item.quantity * item.unitPrice
-                )}
-              </p>
-            </li>
-          ))}
-        </ul>
-
-        <div className="space-y-1 rounded-xl border border-pink-100 bg-white p-4 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-500">
-              Items ({basket.itemCount})
-            </span>
-
-            <span className="text-gray-900">
-              {formatKsh(basket.total)}
+            <span className="text-xs text-gray-400">
+              {basket.itemCount}{' '}
+              {basket.itemCount === 1 ? 'item' : 'items'}
             </span>
           </div>
 
-          <div className="flex justify-between">
-            <span className="text-gray-500">
+          <div className="overflow-hidden rounded-2xl border border-pink-100 bg-white">
+            <ul className="divide-y divide-pink-100">
+              {basket.items.map((item) => (
+                <li
+                  key={item.productId}
+                  className="flex items-center justify-between gap-4 px-4 py-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {item.name}
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-400">
+                      {item.quantity} × {formatKsh(item.unitPrice)}
+                    </p>
+                  </div>
+
+                  <p className="shrink-0 text-sm font-semibold text-gray-900">
+                    {formatKsh(item.quantity * item.unitPrice)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <div className="rounded-2xl border border-pink-100 bg-white p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">
               Payment method
             </span>
 
-            <span className="text-gray-900">
-              {
-                PAYMENT_METHODS.find(
-                  (m) => m.value === paymentMethod
-                )?.label
-              }
+            <span className="text-sm font-medium text-gray-900">
+              {PAYMENT_METHODS.find(
+                (method) => method.value === paymentMethod
+              )?.label ?? 'Not tracked'}
             </span>
           </div>
+        </div>
 
-          <div className="flex justify-between border-t border-pink-100 pt-2 font-semibold">
-            <span>Total</span>
-            <span>{formatKsh(basket.total)}</span>
+        <div className="rounded-2xl border border-pink-100 bg-pink-50 p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">
+              Total
+            </span>
+
+            <span className="text-xl font-semibold text-pink-700">
+              {formatKsh(basket.total)}
+            </span>
           </div>
         </div>
 
@@ -415,63 +561,73 @@ export default function SaleFlow() {
         )}
 
         <button
+          type="button"
           onClick={handleConfirm}
           disabled={saving}
-          className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white disabled:opacity-60"
+          className="w-full rounded-2xl bg-pink-600 py-3.5 text-sm font-medium text-white disabled:opacity-50"
         >
-          {saving ? 'Saving...' : 'Confirm & Save'}
+          {saving ? 'Saving sale...' : 'Save Sale'}
         </button>
       </div>
     )
   }
-
-  // ---- Confirmation step ----
+if (step === 'confirmation') {
   return (
-    <div className="relative space-y-4 text-center">
-      {voided ? (
-        <>
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-3xl text-gray-500">
-            ↺
-          </div>
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-pink-100 bg-white px-5 py-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-pink-50 text-xl text-pink-600">
+          ✓
+        </div>
 
-          <h2 className="text-xl font-semibold text-gray-900">
-            Sale undone
-          </h2>
+        <h2 className="mt-4 text-xl font-semibold text-gray-900">
+          Sale saved
+        </h2>
 
-          <p className="text-sm text-gray-500">
-            The items have been returned to stock.
-          </p>
-        </>
-      ) : (
-        <>
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-600">
-            ✓
-          </div>
+        <p className="mt-1 text-sm text-gray-500">
+          The sale has been recorded successfully.
+        </p>
 
-          <h2 className="text-xl font-semibold text-gray-900">
-            Sale saved!
-          </h2>
-
-          <div className="rounded-xl border border-pink-100 bg-white p-4 text-sm">
-            <p className="text-gray-500">Total</p>
-
-            <p className="text-2xl font-bold text-pink-700">
-              {formatKsh(basket.total)}
+        {saved && (
+          <div className="mt-5 rounded-xl bg-pink-50 px-4 py-3">
+            <p className="text-xs text-gray-500">
+              Total
             </p>
 
-            <p className="mt-2 text-gray-500">
-              Payment method
-            </p>
-
-            <p className="text-gray-900">
-              {
-                PAYMENT_METHODS.find(
-                  (m) => m.value === paymentMethod
-                )?.label
-              }
+            <p className="mt-1 text-lg font-semibold text-pink-700">
+              {formatKsh(saved.total)}
             </p>
           </div>
-        </>
+        )}
+      </div>
+
+      {undoSecondsLeft > 0 && !voided && (
+        <div className="rounded-2xl border border-pink-100 bg-white p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-gray-800">
+                Need to undo this sale?
+              </p>
+
+              <p className="mt-1 text-xs text-gray-400">
+                Available for {undoSecondsLeft}s
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowUndoModal(true)}
+              className="shrink-0 rounded-xl border border-pink-200 px-3 py-2 text-xs font-medium text-pink-700"
+            >
+              Undo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {voided && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          This sale has been undone.
+        </div>
       )}
 
       {error && (
@@ -480,81 +636,59 @@ export default function SaleFlow() {
         </p>
       )}
 
-      {!voided && (
-        <>
-          <button
-            onClick={startNewSale}
-            className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white"
-          >
-            Next sale
-          </button>
-
-          <button
-            onClick={() => navigate('/')}
-            className="w-full rounded-xl border border-pink-200 py-3 text-sm text-pink-700"
-          >
-            Back to Home
-          </button>
-
-          {undoSecondsLeft > 0 && (
-            <button
-              onClick={() => setShowUndoModal(true)}
-              className="w-full rounded-xl border border-pink-100 py-3 text-sm text-pink-400"
-            >
-              Undo ({undoSecondsLeft}s)
-            </button>
-          )}
-        </>
-      )}
-
-      {voided && (
+      <div className="space-y-2">
         <button
-          onClick={() => navigate('/')}
-          className="w-full rounded-xl border border-pink-200 py-3 text-sm text-pink-700"
+          type="button"
+          onClick={startNewSale}
+          className="w-full rounded-2xl bg-pink-600 py-3.5 text-sm font-medium text-white"
         >
-          Back to Home
+          Next Sale
         </button>
-      )}
 
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="w-full rounded-2xl border border-pink-200 bg-white py-3.5 text-sm font-medium text-gray-700"
+        >
+          Back Home
+        </button>
+      </div>
+
+      {/* Undo modal */}
       {showUndoModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
-          <div className="w-full max-w-sm rounded-t-2xl bg-white p-6 text-left sm:rounded-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-lg font-semibold text-gray-900">
-                Undo this sale?
-              </span>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Undo this sale?
+            </h3>
 
-              <button
-                onClick={() => setShowUndoModal(false)}
-                className="text-gray-400"
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-
-            <p className="mb-5 text-sm text-gray-500">
-              The items will be returned to stock and the sale will
-              be removed.
+            <p className="mt-2 text-sm text-gray-500">
+              The sale will be voided and its stock changes will be
+              reversed.
             </p>
 
-            <button
-              onClick={handleUndo}
-              disabled={voiding}
-              className="mb-2 w-full rounded-xl bg-pink-600 py-3 text-sm text-white disabled:opacity-60"
-            >
-              {voiding ? 'Undoing...' : 'Undo'}
-            </button>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowUndoModal(false)}
+                disabled={voiding}
+                className="flex-1 rounded-xl border border-pink-200 py-3 text-sm font-medium text-gray-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
 
-            <button
-              onClick={() => setShowUndoModal(false)}
-              className="w-full rounded-xl border border-pink-200 py-3 text-sm text-pink-700"
-            >
-              Keep sale
-            </button>
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={voiding}
+                className="flex-1 rounded-xl bg-pink-600 py-3 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {voiding ? 'Undoing...' : 'Undo Sale'}
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   )
-}
+}}

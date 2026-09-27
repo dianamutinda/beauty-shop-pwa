@@ -26,43 +26,45 @@ export default function AddToSale({ product }) {
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-pink-100 bg-white p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-600">Quantity</span>
+  <div className="space-y-4 rounded-2xl border border-pink-100 bg-white p-4">
+    <div className="flex items-center justify-between">
+      <span className="text-sm font-medium text-gray-700">
+        Quantity
+      </span>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={decrement}
-            disabled={quantity <= 1}
-            className="h-8 w-8 rounded-full border border-pink-200 text-pink-700 disabled:opacity-40"
-          >
-            −
-          </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={decrement}
+          disabled={quantity <= 1}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-pink-200 text-lg text-pink-700 disabled:opacity-40"
+        >
+          −
+        </button>
 
-          <span className="w-6 text-center text-sm font-medium">
-            {quantity}
-          </span>
+        <span className="w-6 text-center text-sm font-medium text-gray-900">
+          {quantity}
+        </span>
 
-          <button
-            type="button"
-            onClick={increment}
-            disabled={quantity >= product.stock}
-            className="h-8 w-8 rounded-full border border-pink-200 text-pink-700 disabled:opacity-40"
-          >
-            +
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={increment}
+          disabled={quantity >= product.stock}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-pink-200 text-lg text-pink-700 disabled:opacity-40"
+        >
+          +
+        </button>
       </div>
-
-      <button
-        type="button"
-        onClick={handleAdd}
-        disabled={outOfStock}
-        className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white disabled:opacity-50"
-      >
-        {outOfStock ? 'Out of stock' : 'Add to Sale'}
-      </button>
     </div>
-  )
+
+    <button
+      type="button"
+      onClick={handleAdd}
+      disabled={outOfStock}
+      className="w-full rounded-xl bg-pink-600 py-3.5 text-sm font-medium text-white disabled:opacity-50"
+    >
+      {outOfStock ? 'Out of stock' : 'Add to Sale'}
+    </button>
+  </div>
+)
 }

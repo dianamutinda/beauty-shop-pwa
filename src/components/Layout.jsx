@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRole } from '../RoleContext'
+import { useBasketContext } from '../features/lookup/BasketContext'
 import { getShop } from '../db/shop'
 import { hasPin } from '../db/settings'
 import PinDialog from './PinDialog'
@@ -10,6 +11,7 @@ const NAV = {
   worker: [
     { to: '/', label: 'Home', end: true },
     { to: '/search', label: 'Search' },
+    { to: '/sale', label: 'Sale' },
   ],
   owner: [
     { to: '/owner', label: 'Dashboard', end: true },
@@ -25,6 +27,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const shop = useLiveQuery(() => getShop(), [])
   const [askingPin, setAskingPin] = useState(false)
+  const { itemCount } = useBasketContext()
 
   function go(next) {
     switchRole(next)
@@ -70,6 +73,11 @@ export default function Layout() {
             }
           >
             {item.label}
+{item.to === '/sale' && itemCount > 0 && (
+  <span className="ml-1 rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-medium text-pink-700">
+    {itemCount}
+  </span>
+)}
           </NavLink>
         ))}
       </nav>

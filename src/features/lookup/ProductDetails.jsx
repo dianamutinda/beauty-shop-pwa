@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -29,7 +28,7 @@ export default function ProductDetails() {
 
         <button
           onClick={() => navigate('/')}
-          className="rounded-xl bg-pink-600 px-4 py-2 text-sm text-white"
+          className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white"
         >
           Back to Home
         </button>
@@ -41,29 +40,39 @@ export default function ProductDetails() {
   const status = stockStatus(product.stock, product.lowStockAt)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Header */}
       <div>
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-4 text-sm text-pink-600"
+        >
+          ‹ Back
+        </button>
+
         <h2 className="text-2xl font-semibold text-gray-900">
           {product.name}
         </h2>
 
-        <p className="text-sm text-gray-400">
+        <p className="mt-1 text-sm text-gray-400">
           SKU: {product.sku}
         </p>
       </div>
 
-      <div className="rounded-xl bg-pink-100 px-4 py-5">
-        <p className="text-sm text-pink-800">
-          Selling Price
+      {/* Price */}
+      <div className="rounded-2xl border border-pink-100 bg-pink-50 px-5 py-5">
+        <p className="text-sm font-medium text-pink-700">
+          Selling price
         </p>
 
-        <p className="text-4xl font-bold text-pink-700">
+        <p className="mt-1 text-3xl font-semibold text-gray-900">
           {formatKsh(product.sellingPrice)}
         </p>
       </div>
 
-      <dl className="divide-y divide-pink-100 rounded-xl border border-pink-100 bg-white text-sm">
-        <div className="flex justify-between px-4 py-3">
+      {/* Product information */}
+      <dl className="overflow-hidden rounded-2xl border border-pink-100 bg-white text-sm">
+        <div className="flex items-center justify-between border-b border-pink-100 px-4 py-3.5">
           <dt className="text-gray-500">Stock</dt>
 
           <dd className={`font-medium ${status.className}`}>
@@ -71,31 +80,25 @@ export default function ProductDetails() {
           </dd>
         </div>
 
-        <div className="flex justify-between px-4 py-3">
+        <div className="flex items-center justify-between border-b border-pink-100 px-4 py-3.5">
           <dt className="text-gray-500">Category</dt>
 
-          <dd className="text-gray-900">
+          <dd className="text-right text-gray-900">
             {categoryName}
           </dd>
         </div>
 
-        <div className="flex justify-between px-4 py-3">
+        <div className="flex items-center justify-between px-4 py-3.5">
           <dt className="text-gray-500">Last updated</dt>
 
-          <dd className="text-gray-900">
+          <dd className="text-right text-gray-900">
             {formatUpdated(product.lastUpdated)}
           </dd>
         </div>
       </dl>
 
+      {/* Sale action */}
       <AddToSale product={product} />
-
-      <button
-        onClick={() => navigate(-1)}
-        className="w-full rounded-xl bg-pink-600 py-3 text-sm text-white"
-      >
-        Back
-      </button>
     </div>
   )
 }
