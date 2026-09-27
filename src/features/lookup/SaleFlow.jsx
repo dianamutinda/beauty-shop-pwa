@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchProducts } from '../../db/products'
 import { recordSale, voidSale } from '../../db/stock'
 import { formatKsh } from '../../lib/format'
-import { useBasket } from './useBasket'
+import { useBasketContext } from './BasketContext'
 
 const inputClass =
   'w-full rounded-xl border border-pink-200 bg-white px-4 py-3 text-sm outline-none focus:border-pink-400'
@@ -17,7 +18,7 @@ const PAYMENT_METHODS = [
 
 export default function SaleFlow() {
   const navigate = useNavigate()
-  const basket = useBasket()
+  const basket = useBasketContext()
 
   const [step, setStep] = useState('basket')
   const [query, setQuery] = useState('')
@@ -36,19 +37,25 @@ export default function SaleFlow() {
 
   useEffect(() => {
     if (step !== 'confirmation' || voided || undoSecondsLeft <= 0) return
+
     const timer = setTimeout(() => setUndoSecondsLeft((s) => s - 1), 1000)
+
     return () => clearTimeout(timer)
   }, [step, undoSecondsLeft, voided])
 
   async function handleSearch(e) {
     const value = e.target.value
     setQuery(value)
+
     if (!value.trim()) {
       setResults([])
       return
     }
+
     setSearching(true)
+
     const rows = await searchProducts(value)
+
     setResults(rows)
     setSearching(false)
   }
@@ -62,6 +69,7 @@ export default function SaleFlow() {
   async function handleConfirm() {
     setError('')
     setSaving(true)
+
     try {
       const items = basket.items.map((i) => ({
         productId: i.productId,
@@ -69,7 +77,9 @@ export default function SaleFlow() {
         unitPrice: i.unitPrice,
         listPrice: i.sellingPrice,
       }))
+
       const result = await recordSale(items, paymentMethod)
+
       setSaved(result)
       setStep('confirmation')
     } catch (err) {
@@ -83,6 +93,7 @@ export default function SaleFlow() {
   async function handleUndo() {
     setVoiding(true)
     setError('')
+
     try {
       await voidSale(saved.saleId)
       setVoided(true)
@@ -109,10 +120,20 @@ export default function SaleFlow() {
   if (step === 'basket') {
     return (
       <div className="space-y-4">
-        <button onClick={() => navigate(-1)} className="text-sm text-pink-600">‹ Back</button>
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm text-pink-600"
+        >
+          ‹ Back
+        </button>
+
         <h2 className="text-xl font-semibold text-gray-900">New Sale</h2>
 
-        {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+        {error && (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
 
         <input
           className={inputClass}
@@ -121,21 +142,34 @@ export default function SaleFlow() {
           placeholder="Search by name, SKU or category..."
         />
 
-        {searching && <p className="text-sm text-gray-400">Searching...</p>}
+        {searching && (
+          <p className="text-sm text-gray-400">Searching...</p>
+        )}
 
         {results.length > 0 && (
           <ul className="divide-y divide-pink-100 rounded-xl border border-pink-100 bg-white">
             {results.map((p) => (
-              <li key={p.id} className="flex items-center justify-between px-4 py-3">
+              <li
+                key={p.id}
+                className="flex items-center justify-between px-4 py-3"
+              >
                 <div>
                   <p className="text-sm text-gray-900">{p.name}</p>
+
                   <p className="text-xs text-gray-400">
                     SKU: {p.sku} · {formatKsh(p.sellingPrice)} ·{' '}
-                    <span className={p.stock <= 0 ? 'text-red-500' : ''}>
-                      {p.stock <= 0 ? 'Out of stock' : `${p.stock} in stock`}
+                    <span
+                      className={
+                        p.stock <= 0 ? 'text-red-500' : ''
+                      }
+                    >
+                      {p.stock <= 0
+                        ? 'Out of stock'
+                        : `${p.stock} in stock`}
                     </span>
                   </p>
                 </div>
+
                 <button
                   onClick={() => handleAdd(p)}
                   disabled={p.stock <= 0}
@@ -150,50 +184,82 @@ export default function SaleFlow() {
 
         {basket.items.length > 0 && (
           <div className="space-y-2 rounded-xl border border-pink-100 bg-white p-4">
-            <h3 className="text-sm font-semibold text-gray-700">Basket</h3>
+            <h3 className="text-sm font-semibold text-gray-700">
+              Basket
+            </h3>
+
             <ul className="divide-y divide-pink-100">
               {basket.items.map((item) => (
-                <li key={item.productId} className="flex items-center justify-between py-3">
+                <li
+                  key={item.productId}
+                  className="flex items-center justify-between py-3"
+                >
                   <div>
-                    <p className="text-sm text-gray-900">{item.name}</p>
-                    <p className="text-xs text-gray-400">{formatKsh(item.unitPrice)} each</p>
+                    <p className="text-sm text-gray-900">
+                      {item.name}
+                    </p>
+
+                    <p className="text-xs text-gray-400">
+                      {formatKsh(item.unitPrice)} each
+                    </p>
                   </div>
+
                   <div className="flex flex-col items-end gap-1">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() =>
                           item.quantity <= 1
                             ? basket.removeItem(item.productId)
-                            : basket.updateQuantity(item.productId, item.quantity - 1)
+                            : basket.updateQuantity(
+                                item.productId,
+                                item.quantity - 1
+                              )
                         }
                         className="h-7 w-7 rounded-full border border-pink-200 text-pink-700"
                       >
                         −
                       </button>
-                      <span className="w-6 text-center text-sm">{item.quantity}</span>
+
+                      <span className="w-6 text-center text-sm">
+                        {item.quantity}
+                      </span>
+
                       <button
                         onClick={() => {
                           if (item.quantity >= item.stock) return
-                          basket.updateQuantity(item.productId, item.quantity + 1)
+
+                          basket.updateQuantity(
+                            item.productId,
+                            item.quantity + 1
+                          )
                         }}
                         disabled={item.quantity >= item.stock}
                         className="h-7 w-7 rounded-full border border-pink-200 text-pink-700 disabled:opacity-40"
                       >
                         +
                       </button>
+
                       <p className="w-20 text-right text-sm font-semibold text-gray-900">
-                        {formatKsh(item.quantity * item.unitPrice)}
+                        {formatKsh(
+                          item.quantity * item.unitPrice
+                        )}
                       </p>
+
                       <button
-                        onClick={() => basket.removeItem(item.productId)}
+                        onClick={() =>
+                          basket.removeItem(item.productId)
+                        }
                         className="text-gray-400"
                         aria-label="Remove"
                       >
                         ×
                       </button>
                     </div>
+
                     {item.quantity >= item.stock && (
-                      <p className="text-xs text-red-500">Max stock reached</p>
+                      <p className="text-xs text-red-500">
+                        Max stock reached
+                      </p>
                     )}
                   </div>
                 </li>
@@ -201,8 +267,13 @@ export default function SaleFlow() {
             </ul>
 
             <div className="flex justify-between border-t border-pink-100 pt-3 text-sm">
-              <span className="text-gray-500">Items ({basket.itemCount})</span>
-              <span className="font-semibold text-gray-900">{formatKsh(basket.total)}</span>
+              <span className="text-gray-500">
+                Items ({basket.itemCount})
+              </span>
+
+              <span className="font-semibold text-gray-900">
+                {formatKsh(basket.total)}
+              </span>
             </div>
 
             <button
@@ -214,9 +285,13 @@ export default function SaleFlow() {
           </div>
         )}
 
-        {basket.items.length === 0 && results.length === 0 && !query && (
-          <p className="text-sm text-gray-400">Search for a product to start a sale.</p>
-        )}
+        {basket.items.length === 0 &&
+          results.length === 0 &&
+          !query && (
+            <p className="text-sm text-gray-400">
+              Search for a product to start a sale.
+            </p>
+          )}
       </div>
     )
   }
@@ -225,8 +300,16 @@ export default function SaleFlow() {
   if (step === 'payment') {
     return (
       <div className="space-y-4">
-        <button onClick={() => setStep('basket')} className="text-sm text-pink-600">‹ Back</button>
-        <h2 className="text-xl font-semibold text-gray-900">Payment Method</h2>
+        <button
+          onClick={() => setStep('basket')}
+          className="text-sm text-pink-600"
+        >
+          ‹ Back
+        </button>
+
+        <h2 className="text-xl font-semibold text-gray-900">
+          Payment Method
+        </h2>
 
         <div className="space-y-2">
           {PAYMENT_METHODS.map((m) => (
@@ -258,18 +341,37 @@ export default function SaleFlow() {
   if (step === 'review') {
     return (
       <div className="space-y-4">
-        <button onClick={() => setStep('payment')} className="text-sm text-pink-600">‹ Back</button>
-        <h2 className="text-xl font-semibold text-gray-900">Review Sale</h2>
+        <button
+          onClick={() => setStep('payment')}
+          className="text-sm text-pink-600"
+        >
+          ‹ Back
+        </button>
+
+        <h2 className="text-xl font-semibold text-gray-900">
+          Review Sale
+        </h2>
 
         <ul className="divide-y divide-pink-100 rounded-xl border border-pink-100 bg-white">
           {basket.items.map((item) => (
-            <li key={item.productId} className="flex items-center justify-between px-4 py-3">
+            <li
+              key={item.productId}
+              className="flex items-center justify-between px-4 py-3"
+            >
               <div>
-                <p className="text-sm text-gray-900">{item.name}</p>
-                <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                <p className="text-sm text-gray-900">
+                  {item.name}
+                </p>
+
+                <p className="text-xs text-gray-400">
+                  Qty: {item.quantity}
+                </p>
               </div>
+
               <p className="text-sm font-semibold text-gray-900">
-                {formatKsh(item.quantity * item.unitPrice)}
+                {formatKsh(
+                  item.quantity * item.unitPrice
+                )}
               </p>
             </li>
           ))}
@@ -277,22 +379,40 @@ export default function SaleFlow() {
 
         <div className="space-y-1 rounded-xl border border-pink-100 bg-white p-4 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-500">Items ({basket.itemCount})</span>
-            <span className="text-gray-900">{formatKsh(basket.total)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Payment method</span>
+            <span className="text-gray-500">
+              Items ({basket.itemCount})
+            </span>
+
             <span className="text-gray-900">
-              {PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label}
+              {formatKsh(basket.total)}
             </span>
           </div>
+
+          <div className="flex justify-between">
+            <span className="text-gray-500">
+              Payment method
+            </span>
+
+            <span className="text-gray-900">
+              {
+                PAYMENT_METHODS.find(
+                  (m) => m.value === paymentMethod
+                )?.label
+              }
+            </span>
+          </div>
+
           <div className="flex justify-between border-t border-pink-100 pt-2 font-semibold">
             <span>Total</span>
             <span>{formatKsh(basket.total)}</span>
           </div>
         </div>
 
-        {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+        {error && (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
 
         <button
           onClick={handleConfirm}
@@ -313,28 +433,52 @@ export default function SaleFlow() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-3xl text-gray-500">
             ↺
           </div>
-          <h2 className="text-xl font-semibold text-gray-900">Sale undone</h2>
-          <p className="text-sm text-gray-500">The items have been returned to stock.</p>
+
+          <h2 className="text-xl font-semibold text-gray-900">
+            Sale undone
+          </h2>
+
+          <p className="text-sm text-gray-500">
+            The items have been returned to stock.
+          </p>
         </>
       ) : (
         <>
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-600">
             ✓
           </div>
-          <h2 className="text-xl font-semibold text-gray-900">Sale saved!</h2>
+
+          <h2 className="text-xl font-semibold text-gray-900">
+            Sale saved!
+          </h2>
 
           <div className="rounded-xl border border-pink-100 bg-white p-4 text-sm">
             <p className="text-gray-500">Total</p>
-            <p className="text-2xl font-bold text-pink-700">{formatKsh(basket.total)}</p>
-            <p className="mt-2 text-gray-500">Payment method</p>
+
+            <p className="text-2xl font-bold text-pink-700">
+              {formatKsh(basket.total)}
+            </p>
+
+            <p className="mt-2 text-gray-500">
+              Payment method
+            </p>
+
             <p className="text-gray-900">
-              {PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label}
+              {
+                PAYMENT_METHODS.find(
+                  (m) => m.value === paymentMethod
+                )?.label
+              }
             </p>
           </div>
         </>
       )}
 
-      {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+      {error && (
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </p>
+      )}
 
       {!voided && (
         <>
@@ -344,12 +488,14 @@ export default function SaleFlow() {
           >
             Next sale
           </button>
+
           <button
             onClick={() => navigate('/')}
             className="w-full rounded-xl border border-pink-200 py-3 text-sm text-pink-700"
           >
             Back to Home
           </button>
+
           {undoSecondsLeft > 0 && (
             <button
               onClick={() => setShowUndoModal(true)}
@@ -374,7 +520,10 @@ export default function SaleFlow() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
           <div className="w-full max-w-sm rounded-t-2xl bg-white p-6 text-left sm:rounded-2xl">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-lg font-semibold text-gray-900">Undo this sale?</span>
+              <span className="text-lg font-semibold text-gray-900">
+                Undo this sale?
+              </span>
+
               <button
                 onClick={() => setShowUndoModal(false)}
                 className="text-gray-400"
@@ -383,9 +532,12 @@ export default function SaleFlow() {
                 ×
               </button>
             </div>
+
             <p className="mb-5 text-sm text-gray-500">
-              The items will be returned to stock and the sale will be removed.
+              The items will be returned to stock and the sale will
+              be removed.
             </p>
+
             <button
               onClick={handleUndo}
               disabled={voiding}
@@ -393,6 +545,7 @@ export default function SaleFlow() {
             >
               {voiding ? 'Undoing...' : 'Undo'}
             </button>
+
             <button
               onClick={() => setShowUndoModal(false)}
               className="w-full rounded-xl border border-pink-200 py-3 text-sm text-pink-700"

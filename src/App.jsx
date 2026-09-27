@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { RoleProvider, useRole } from './RoleContext'
+import { BasketProvider } from './features/lookup/BasketContext'
 import Layout from './components/Layout'
 import Home from './features/lookup/Home'
 import Search from './features/lookup/Search'
@@ -23,8 +24,9 @@ function OwnerOnly() {
 
 export default function App() {
   return (
-    <RoleProvider>
-      <HashRouter>
+  <RoleProvider>
+    <HashRouter>
+      <BasketProvider>
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Home />} />
@@ -33,7 +35,6 @@ export default function App() {
             <Route path="sale" element={<SaleFlow />} />
             <Route path="sales-today" element={<SalesToday />} />
 
-            
             <Route path="owner" element={<OwnerOnly />}>
               <Route index element={<Dashboard />} />
               <Route path="products" element={<Products />} />
@@ -49,7 +50,8 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
-      </HashRouter>
-    </RoleProvider>
-  )
+      </BasketProvider>
+    </HashRouter>
+  </RoleProvider>
+)
 }

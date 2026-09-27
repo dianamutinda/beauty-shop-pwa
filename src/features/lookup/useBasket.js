@@ -1,16 +1,32 @@
+
 import { useState, useMemo } from 'react'
 
 export function useBasket() {
-  const [items, setItems] = useState([]) // { productId, name, sku, stock, sellingPrice, quantity, unitPrice }
+  const [items, setItems] = useState([])
 
-  function addItem(product) {
+  function addItem(product, quantity = 1) {
+    if (product.stock <= 0) return
+
+    const requestedQuantity = Math.max(1, Math.floor(quantity))
+
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === product.id)
+      const existing = prev.find(
+        (i) => i.productId === product.id
+      )
+
       if (existing) {
+        const newQuantity = Math.min(
+          existing.quantity + requestedQuantity,
+          existing.stock
+        )
+
         return prev.map((i) =>
-          i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i
+          i.productId === product.id
+            ? { ...i, quantity: newQuantity }
+            : i
         )
       }
+
       return [
         ...prev,
         {
@@ -19,7 +35,7 @@ export function useBasket() {
           sku: product.sku,
           stock: product.stock,
           sellingPrice: product.sellingPrice,
-          quantity: 1,
+          quantity: Math.min(requestedQuantity, product.stock),
           unitPrice: product.sellingPrice,
         },
       ]
@@ -28,18 +44,34 @@ export function useBasket() {
 
   function updateQuantity(productId, quantity) {
     setItems((prev) =>
-      prev.map((i) => (i.productId === productId ? { ...i, quantity } : i))
+      prev.map((i) =>
+        i.productId === productId
+          ? {
+              ...i,
+              quantity: Math.max(
+                1,
+                Math.min(quantity, i.stock)
+              ),
+            }
+          : i
+      )
     )
   }
 
   function updateUnitPrice(productId, unitPrice) {
     setItems((prev) =>
-      prev.map((i) => (i.productId === productId ? { ...i, unitPrice } : i))
+      prev.map((i) =>
+        i.productId === productId
+          ? { ...i, unitPrice }
+          : i
+      )
     )
   }
 
   function removeItem(productId) {
-    setItems((prev) => prev.filter((i) => i.productId !== productId))
+    setItems((prev) =>
+      prev.filter((i) => i.productId !== productId)
+    )
   }
 
   function clear() {
@@ -47,10 +79,32 @@ export function useBasket() {
   }
 
   const total = useMemo(
-    () => items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0),
+    () =>
+      items.reduce(
+        (sum, i) => sum + i.quantity * i.unitPrice,
+        0
+      ),
     [items]
   )
-  const itemCount = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items])
 
-  return { items, addItem, updateQuantity, updateUnitPrice, removeItem, clear, total, itemCount }
+  const itemCount = useMemo(
+    () =>
+      items.reduce(
+        (sum, i) => sum + i.quantity,
+        0
+      ),
+    [items]
+  )
+
+  return {
+    items,
+    addItem,
+    updateQuantity,
+    updateUnitPrice,
+    removeItem,
+    clear,
+    total,
+    itemCount,
+  }
 }
+
