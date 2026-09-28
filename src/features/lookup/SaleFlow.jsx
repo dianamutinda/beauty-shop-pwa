@@ -67,56 +67,101 @@ export default function SaleFlow() {
     setError('')
   }
 
-  async function handleConfirm() {
-    if (basket.items.length === 0) {
-      setError('Add at least one product before saving the sale.')
-      return
-    }
 
-    setSaving(true)
-    setError('')
-
-    try {
-      const items = basket.items.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        listPrice: item.sellingPrice,
-      }))
-
-      const result = await recordSale(items, paymentMethod)
-
-      setSaved(result)
-      setVoided(false)
-      setUndoSecondsLeft(10)
-      setStep('confirmation')
-    } catch (err) {
-      console.error(err)
-      setError(err?.message || 'Could not save the sale.')
-    } finally {
-      setSaving(false)
-    }
+async function handleConfirm() {
+  if (basket.items.length === 0) {
+    setError('Add at least one product before saving the sale.')
+    return
   }
 
-  async function handleUndo() {
-    if (!saved?.saleId) return
+  setSaving(true)
+  setError('')
 
-    setVoiding(true)
-    setError('')
+  try {
+    const items = basket.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      listPrice: item.sellingPrice,
+    }))
 
-    try {
-      await voidSale(saved.saleId)
+    // Calculate the total before clearing the basket.
+    const total = basket.items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0
+    )
 
-      setVoided(true)
-      setShowUndoModal(false)
-      setUndoSecondsLeft(0)
-    } catch (err) {
-      console.error(err)
-      setError(err?.message || 'Could not undo the sale.')
-    } finally {
-      setVoiding(false)
-    }
+    const result = await recordSale(items, paymentMethod)
+
+    // The sale is now saved, so there is no longer
+    // an active/current basket.
+    basket.clear()
+
+    setSaved({
+      ...result,
+      total,
+    })
+
+    setVoided(false)
+    setUndoSecondsLeft(15)
+    setStep('confirmation')
+  } catch (err) {
+    console.error(err)
+    setError(err?.message || 'Could not save the sale.')
+  } finally {
+    setSaving(false)
   }
+}
+
+async function handleUndo() {
+  if (!saved?.saleId || voided) return
+
+  // Do not allow cancellation after the 10-second window.
+  if (undoSecondsLeft <= 0) {
+    setShowUndoModal(false)
+    return
+  }
+
+  setVoiding(true)
+  setError('')
+
+  try {
+    await voidSale(saved.saleId)
+
+    setVoided(true)
+    setShowUndoModal(false)
+    setUndoSecondsLeft(0)
+  } catch (err) {
+    console.error(err)
+    setError(err?.message || 'Could not cancel the sale.')
+  } finally {
+    setVoiding(false)
+  }
+}
+
+useEffect(() => {
+  if (step !== 'confirmation' || !saved || voided) {
+    return
+  }
+
+  const timer = setInterval(() => {
+    setUndoSecondsLeft((seconds) => {
+      if (seconds <= 1) {
+        clearInterval(timer)
+
+        // If the dialog is still open when time runs out,
+        // close it because the cancellation window has expired.
+        setShowUndoModal(false)
+
+        return 0
+      }
+
+      return seconds - 1
+    })
+  }, 1000)
+
+  return () => clearInterval(timer)
+}, [step, saved, voided])
 
   function startNewSale() {
     basket.clear()
@@ -571,20 +616,29 @@ export default function SaleFlow() {
       </div>
     )
   }
+
 if (step === 'confirmation') {
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-pink-100 bg-white px-5 py-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-pink-50 text-xl text-pink-600">
-          ✓
+        <div
+          className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full text-xl ${
+            voided
+              ? 'bg-amber-50 text-amber-600'
+              : 'bg-pink-50 text-pink-600'
+          }`}
+        >
+          {voided ? '✓' : '✓'}
         </div>
 
         <h2 className="mt-4 text-xl font-semibold text-gray-900">
-          Sale saved
+          {voided ? 'Sale cancelled' : 'Sale saved'}
         </h2>
 
         <p className="mt-1 text-sm text-gray-500">
-          The sale has been recorded successfully.
+          {voided
+            ? 'The sale was cancelled and the stock was restored.'
+            : 'The sale has been recorded successfully.'}
         </p>
 
         {saved && (
@@ -605,11 +659,11 @@ if (step === 'confirmation') {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-gray-800">
-                Need to undo this sale?
+                Need to cancel this sale?
               </p>
 
               <p className="mt-1 text-xs text-gray-400">
-                Available for {undoSecondsLeft}s
+                You have {undoSecondsLeft}s to cancel it.
               </p>
             </div>
 
@@ -618,15 +672,9 @@ if (step === 'confirmation') {
               onClick={() => setShowUndoModal(true)}
               className="shrink-0 rounded-xl border border-pink-200 px-3 py-2 text-xs font-medium text-pink-700"
             >
-              Undo
+              Cancel sale
             </button>
           </div>
-        </div>
-      )}
-
-      {voided && (
-        <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          This sale has been undone.
         </div>
       )}
 
@@ -654,17 +702,19 @@ if (step === 'confirmation') {
         </button>
       </div>
 
-      {/* Undo modal */}
-      {showUndoModal && (
+      {showUndoModal && undoSecondsLeft > 0 && !voided && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-lg">
             <h3 className="text-lg font-semibold text-gray-900">
-              Undo this sale?
+              Cancel this sale?
             </h3>
 
             <p className="mt-2 text-sm text-gray-500">
-              The sale will be voided and its stock changes will be
-              reversed.
+              This will cancel the sale and restore the stock.
+            </p>
+
+            <p className="mt-2 text-xs text-gray-400">
+              You have {undoSecondsLeft}s remaining.
             </p>
 
             <div className="mt-5 flex gap-2">
@@ -674,16 +724,16 @@ if (step === 'confirmation') {
                 disabled={voiding}
                 className="flex-1 rounded-xl border border-pink-200 py-3 text-sm font-medium text-gray-700 disabled:opacity-50"
               >
-                Cancel
+                Keep sale
               </button>
 
               <button
                 type="button"
                 onClick={handleUndo}
-                disabled={voiding}
+                disabled={voiding || undoSecondsLeft <= 0}
                 className="flex-1 rounded-xl bg-pink-600 py-3 text-sm font-medium text-white disabled:opacity-50"
               >
-                {voiding ? 'Undoing...' : 'Undo Sale'}
+                {voiding ? 'Cancelling...' : 'Cancel sale'}
               </button>
             </div>
           </div>
@@ -691,4 +741,5 @@ if (step === 'confirmation') {
       )}
     </div>
   )
-}}
+}
+}

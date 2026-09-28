@@ -1,33 +1,89 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
+import {
+  House,
+  Receipt,
+  ChartNoAxesColumnIncreasing,
+  UserRound,
+  LayoutDashboard,
+  Package,
+  Boxes,
+  Tags,
+  Settings,
+} from 'lucide-react'
+
 import { useRole } from '../RoleContext'
-import { useBasketContext } from '../features/lookup/BasketContext'
 import { getShop } from '../db/shop'
 import { hasPin } from '../db/settings'
 import PinDialog from './PinDialog'
 
-const NAV = {
-  worker: [
-    { to: '/', label: 'Home', end: true },
-    { to: '/search', label: 'Search' },
-    { to: '/sale', label: 'Sale' },
-  ],
-  owner: [
-    { to: '/owner', label: 'Dashboard', end: true },
-    { to: '/owner/products', label: 'Products' },
-    { to: '/owner/stock', label: 'Stock' },
-    { to: '/owner/categories', label: 'Categories' },
-    { to: '/owner/settings', label: 'Settings' },
-  ],
-}
+const WORKER_NAV = [
+  {
+    to: '/',
+    label: 'Home',
+    icon: House,
+    end: true,
+  },
+  {
+    to: '/sales',
+    label: 'Sales',
+    icon: Receipt,
+  },
+  {
+    to: '/end-of-day',
+    label: 'End of Day',
+    icon: ChartNoAxesColumnIncreasing,
+  },
+  {
+    to: '/account',
+    label: 'Account',
+    icon: UserRound,
+  },
+]
+
+const OWNER_NAV = [
+  {
+    to: '/owner',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    end: true,
+  },
+  {
+    to: '/owner/products',
+    label: 'Products',
+    icon: Package,
+  },
+  {
+    to: '/owner/stock',
+    label: 'Stock',
+    icon: Boxes,
+  },
+  {
+    to: '/owner/categories',
+    label: 'Categories',
+    icon: Tags,
+  },
+  {
+    to: '/owner/settings',
+    label: 'Settings',
+    icon: Settings,
+  },
+]
 
 export default function Layout() {
   const { role, switchRole } = useRole()
   const navigate = useNavigate()
+  const location = useLocation()
+
   const shop = useLiveQuery(() => getShop(), [])
+
   const [askingPin, setAskingPin] = useState(false)
-  const { itemCount } = useBasketContext()
 
   function go(next) {
     switchRole(next)
@@ -44,44 +100,103 @@ export default function Layout() {
     }
   }
 
+  /*
+   * These are focused workflows.
+   * The reference design removes the bottom navigation
+   * while the worker is inside a sale or viewing a product.
+   */
+  const hideWorkerNav =
+    role === 'worker' &&
+    (
+      location.pathname === '/sale' ||
+      location.pathname.startsWith('/product/')
+    )
+
+  const navItems =
+    role === 'owner'
+      ? OWNER_NAV
+      : WORKER_NAV
+
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-pink-50">
-      <header className="flex items-center justify-between bg-white px-4 py-3 shadow-sm">
-        <h1 className="truncate text-lg font-semibold text-pink-700">{shop?.name ?? ''}</h1>
+
+      {/* Header */}
+      <header className="flex items-center justify-between border-b border-pink-100 bg-white px-4 py-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-semibold text-gray-900">
+            {shop?.name ?? 'Beauty Shop'}
+          </h1>
+
+          <p className="text-[11px] text-gray-400">
+            {role === 'owner'
+              ? 'Owner Dashboard'
+              : 'Worker Dashboard'}
+          </p>
+        </div>
+
         <button
+          type="button"
           onClick={toggleRole}
-          className="rounded-full border border-pink-300 px-3 py-1 text-sm text-pink-700"
+          className="shrink-0 rounded-full border border-pink-200 bg-white px-3 py-1.5 text-xs font-medium text-pink-700"
         >
           {role === 'owner' ? 'Owner' : 'Worker'}
         </button>
       </header>
 
-      <main className="flex-1 p-4 pb-20">
+      {/* Page */}
+      <main
+        className={`flex-1 p-4 ${
+          hideWorkerNav ? 'pb-6' : 'pb-24'
+        }`}
+      >
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 border-t border-pink-100 bg-white">
-        {NAV[role].map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              `flex-1 py-3 text-center text-xs ${
-                isActive ? 'font-semibold text-pink-600' : 'text-gray-500'
-              }`
-            }
-          >
-            {item.label}
-{item.to === '/sale' && itemCount > 0 && (
-  <span className="ml-1 rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-medium text-pink-700">
-    {itemCount}
-  </span>
-)}
-          </NavLink>
-        ))}
-      </nav>
+      {/* Bottom Navigation */}
+      {!hideWorkerNav && (
+        <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-md -translate-x-1/2 border-t border-pink-100 bg-white">
+          <div className="grid grid-cols-4">
+            {navItems.map((item) => {
+              const Icon = item.icon
 
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className="flex flex-col items-center justify-center gap-1 py-2.5"
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        size={18}
+                        strokeWidth={isActive ? 2.2 : 1.8}
+                        className={
+                          isActive
+                            ? 'text-pink-600'
+                            : 'text-gray-400'
+                        }
+                      />
+
+                      <span
+                        className={`text-[10px] ${
+                          isActive
+                            ? 'font-medium text-pink-600'
+                            : 'text-gray-400'
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </>
+                  )}
+                </NavLink>
+              )
+            })}
+          </div>
+        </nav>
+      )}
+
+      {/* PIN dialog */}
       {askingPin && (
         <PinDialog
           onCancel={() => setAskingPin(false)}
