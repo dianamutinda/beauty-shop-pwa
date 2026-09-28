@@ -30,7 +30,9 @@ import StockUpdate from './features/owner/StockUpdate'
 import Count from './features/owner/Count'
 import Dashboard from './features/owner/Dashboard'
 import Sales from './features/owner/Sales'
+import More from './features/owner/More'
 import Settings from './features/owner/Settings'
+import Activity from './features/owner/Activity'
 
 // Owner → Workers
 import Workers from './features/owner/workers/Workers'
@@ -146,6 +148,11 @@ export default function App() {
                   path="categories"
                   element={<Categories />}
                 />
+                <Route 
+                path="more" 
+                element={<More />} 
+                />
+  
 
                 {/* Workers */}
                 <Route
@@ -166,6 +173,11 @@ export default function App() {
                 <Route
                   path="settings"
                   element={<Settings />}
+                />
+
+                <Route
+                  path="activity"
+                  element={<Activity />}
                 />
               </Route>
 

@@ -1,3 +1,4 @@
+
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { listWorkers } from '../../../db/workers'
@@ -45,23 +46,40 @@ export default function Workers() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-pink-700">
-            Workers
-          </h2>
+      <div>
+        <div className="flex items-center gap-1.5 text-xs">
+          <Link
+            to="/owner/more"
+            className="font-medium text-pink-700"
+          >
+            More
+          </Link>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Manage people who use the shop app.
-          </p>
+          <span className="text-gray-300">/</span>
+
+          <span className="text-gray-400">
+            Workers
+          </span>
         </div>
 
-        <Link
-          to="/owner/workers/new"
-          className="shrink-0 rounded-lg bg-pink-600 px-3 py-2 text-xs font-medium text-white"
-        >
-          Add Worker
-        </Link>
+        <div className="mt-3 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-pink-700">
+              Workers
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Manage people who use the shop app.
+            </p>
+          </div>
+
+          <Link
+            to="/owner/workers/new"
+            className="shrink-0 rounded-lg bg-pink-600 px-3 py-2 text-xs font-medium text-white"
+          >
+            Add Worker
+          </Link>
+        </div>
       </div>
 
       {!workers ? (

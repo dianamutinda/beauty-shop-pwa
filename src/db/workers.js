@@ -1,3 +1,4 @@
+
 import { db } from './index'
 import { getShopId } from './shop'
 import { addActivity } from './activity'
@@ -165,10 +166,6 @@ export async function updateWorker(
     }
   }
 
-  if ('active' in changes) {
-    updates.active = Boolean(changes.active)
-  }
-
   if (Object.keys(updates).length === 0) {
     return worker
   }
@@ -187,6 +184,7 @@ export async function updateWorker(
         'worker.updated',
         {
           workerId: id,
+          name: worker.name,
           changes: Object.keys(updates),
         }
       )
@@ -201,12 +199,97 @@ export async function updateWorker(
 }
 
 export async function deactivateWorker(id) {
-  return updateWorker(id, {
+  const worker = await getWorker(id)
+
+  if (!worker) {
+    throw new Error('Worker not found')
+  }
+
+  await db.transaction(
+    'rw',
+    db.workers,
+    db.activity,
+    async () => {
+      await db.workers.update(id, {
+        active: false,
+        synced: 0,
+      })
+
+      await addActivity(
+        worker.shopId,
+        'worker.deactivated',
+        {
+          workerId: id,
+          name: worker.name,
+        }
+      )
+    }
+  )
+
+  return {
+    ...worker,
     active: false,
-  })
+    synced: 0,
+    pin: undefined,
+  }
 }
+
 export async function activateWorker(id) {
-  return updateWorker(id, {
+  const worker = await getWorker(id)
+
+  if (!worker) {
+    throw new Error('Worker not found')
+  }
+
+  await db.transaction(
+    'rw',
+    db.workers,
+    db.activity,
+    async () => {
+      await db.workers.update(id, {
+        active: true,
+        synced: 0,
+      })
+
+      await addActivity(
+        worker.shopId,
+        'worker.activated',
+        {
+          workerId: id,
+          name: worker.name,
+        }
+      )
+    }
+  )
+
+  return {
+    ...worker,
     active: true,
-  })
+    synced: 0,
+    pin: undefined,
+  }
 }
+
+function getDetails(activity) {
+  const details = activity.details ?? {}
+
+  if (
+    activity.action === 'worker.added' ||
+    activity.action === 'worker.updated' ||
+    activity.action === 'worker.deactivated' ||
+    activity.action === 'worker.activated'
+  ) {
+    return details.name ?? 'Worker'
+  }
+
+  if (activity.action === 'sale.recorded') {
+    return 'Sale recorded'
+  }
+
+  if (activity.action === 'sale.voided') {
+    return 'Sale cancelled'
+  }
+
+  return ''
+}
+

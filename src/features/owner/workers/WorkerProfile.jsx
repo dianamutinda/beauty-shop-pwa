@@ -111,12 +111,29 @@ export default function WorkerProfile() {
   if (worker === null) {
     return (
       <div className="space-y-4">
-        <Link
-          to="/owner/workers"
-          className="text-xs font-medium text-pink-700"
-        >
-          ← Workers
-        </Link>
+        <div className="flex items-center gap-1.5 text-xs">
+          <Link
+            to="/owner/more"
+            className="font-medium text-pink-700"
+          >
+            More
+          </Link>
+
+          <span className="text-gray-300">/</span>
+
+          <Link
+            to="/owner/workers"
+            className="font-medium text-pink-700"
+          >
+            Workers
+          </Link>
+
+          <span className="text-gray-300">/</span>
+
+          <span className="text-gray-400">
+            Worker Profile
+          </span>
+        </div>
 
         <div className="rounded-xl border border-pink-100 bg-white p-6 text-center">
           <p className="text-sm font-medium text-gray-700">
@@ -137,12 +154,29 @@ export default function WorkerProfile() {
   return (
     <div className="space-y-5">
       <div>
-        <Link
-          to="/owner/workers"
-          className="text-xs font-medium text-pink-700"
-        >
-          ← Workers
-        </Link>
+        <div className="flex items-center gap-1.5 text-xs">
+          <Link
+            to="/owner/more"
+            className="font-medium text-pink-700"
+          >
+            More
+          </Link>
+
+          <span className="text-gray-300">/</span>
+
+          <Link
+            to="/owner/workers"
+            className="font-medium text-pink-700"
+          >
+            Workers
+          </Link>
+
+          <span className="text-gray-300">/</span>
+
+          <span className="text-gray-400">
+            Worker Profile
+          </span>
+        </div>
 
         <div className="mt-3 flex items-start justify-between gap-3">
           <div>
@@ -326,3 +360,4 @@ export default function WorkerProfile() {
     </div>
   )
 }
+
