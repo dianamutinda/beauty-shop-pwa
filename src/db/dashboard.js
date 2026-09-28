@@ -1,45 +1,80 @@
-import { db } from './index'
-import { getShopId } from './shop'
 import { listProducts } from './products'
+import { listSales } from './stock'
 
 export async function getDashboardStats() {
-  const shopId = await getShopId()
-  const products = await listProducts()
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
 
-  const startOfToday = new Date()
-  startOfToday.setHours(0, 0, 0, 0)
+  const endOfDay = new Date(startOfDay)
+  endOfDay.setDate(endOfDay.getDate() + 1)
 
-  const todaysSales = await db.stockMovements
-    .where('timestamp')
-    .aboveOrEqual(startOfToday.toISOString())
-    .filter((m) => m.shopId === shopId && m.type === 'sale')
-    .toArray()
+  const from = startOfDay.toISOString()
+  const to = endOfDay.toISOString()
 
-  // Sale quantities are negative, so flip the sign
-  const unitsSoldToday = todaysSales.reduce((sum, m) => sum - m.quantity, 0)
+  const [products, sales] = await Promise.all([
+    listProducts(),
+    listSales({ from, to }),
+  ])
 
-  // What customers actually paid
-  const salesToday = todaysSales.reduce(
-    (sum, m) => (m.unitPrice == null ? sum : sum - m.quantity * m.unitPrice),
+  const completedSales = sales.filter(
+    (sale) => !sale.voided
+  )
+
+  const totalProducts = products.length
+
+  const lowStockProducts = products.filter(
+    (product) => product.stock <= product.lowStockAt
+  )
+
+  const lowStock = lowStockProducts.length
+
+  const outOfStock = products.filter(
+    (product) => product.stock === 0
+  ).length
+
+  const salesToday = completedSales.reduce(
+    (sum, sale) => sum + sale.total,
     0
   )
 
-  // How much was given away against list prices (haggling, discounts)
-  const discountToday = todaysSales.reduce(
-    (sum, m) =>
-      m.unitPrice == null || m.listPrice == null
-        ? sum
-        : sum - m.quantity * (m.listPrice - m.unitPrice),
+  const unitsSoldToday = completedSales.reduce(
+    (sum, sale) =>
+      sum +
+      sale.items.reduce(
+        (itemSum, item) => itemSum + item.quantity,
+        0
+      ),
+    0
+  )
+
+  const discountToday = completedSales.reduce(
+    (sum, sale) =>
+      sum +
+      sale.items.reduce(
+        (itemSum, item) => {
+          const listPrice = item.listPrice ?? item.unitPrice ?? 0
+          const unitPrice = item.unitPrice ?? 0
+
+          return itemSum + Math.max(0, listPrice - unitPrice) * item.quantity
+        },
+        0
+      ),
+    0
+  )
+
+  const stockValue = products.reduce(
+    (sum, product) =>
+      sum + product.stock * (product.sellingPrice ?? 0),
     0
   )
 
   return {
-    totalProducts: products.length,
-    lowStock: products.filter((p) => p.stock <= p.lowStockAt).length,
-    outOfStock: products.filter((p) => p.stock <= 0).length,
-    stockValue: products.reduce((sum, p) => sum + Math.max(p.stock, 0) * p.sellingPrice, 0),
-    unitsSoldToday,
+    totalProducts,
+    lowStock,
+    outOfStock,
     salesToday,
+    unitsSoldToday,
     discountToday,
+    stockValue,
   }
 }

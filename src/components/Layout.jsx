@@ -16,6 +16,7 @@ import {
   Boxes,
   Tags,
   Settings,
+  Menu,
 } from 'lucide-react'
 
 import { useRole } from '../RoleContext'
@@ -55,24 +56,19 @@ const OWNER_NAV = [
     end: true,
   },
   {
+    to: '/owner/sales',
+    label: 'Sales',
+    icon: Receipt,
+  },
+  {
     to: '/owner/products',
     label: 'Products',
     icon: Package,
   },
   {
-    to: '/owner/stock',
-    label: 'Stock',
-    icon: Boxes,
-  },
-  {
-    to: '/owner/categories',
-    label: 'Categories',
-    icon: Tags,
-  },
-  {
-    to: '/owner/settings',
-    label: 'Settings',
-    icon: Settings,
+    to: '/owner/more',
+    label: 'More',
+    icon: Menu,
   },
 ]
 

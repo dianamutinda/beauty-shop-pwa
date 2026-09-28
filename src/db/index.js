@@ -14,3 +14,7 @@ db.version(2).stores({
   stockMovements: 'id, shopId, productId, type, timestamp, synced, saleId',
  
 })
+
+db.version(3).stores({
+  activity: 'id, shopId, userId, action, timestamp, synced',
+})

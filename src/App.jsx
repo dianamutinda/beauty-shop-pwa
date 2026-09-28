@@ -20,6 +20,7 @@ import Stock from './features/owner/Stock'
 import StockUpdate from './features/owner/StockUpdate'
 import Count from './features/owner/Count'
 import Dashboard from './features/owner/Dashboard'
+import Sales from './features/owner/Sales'
 import Settings from './features/owner/Settings'
 
 function OwnerOnly() {
@@ -77,6 +78,11 @@ export default function App() {
               {/* Owner */}
               <Route path="owner" element={<OwnerOnly />}>
                 <Route index element={<Dashboard />} />
+
+                <Route
+                  path="sales"
+                  element={<Sales />}
+                />
 
                 <Route
                   path="products"
