@@ -18,3 +18,7 @@ db.version(2).stores({
 db.version(3).stores({
   activity: 'id, shopId, userId, action, timestamp, synced',
 })
+
+db.version(4).stores({
+  workers: 'id, shopId, phone, role, active, synced',
+})

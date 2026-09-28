@@ -1,9 +1,17 @@
-import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import {
+  HashRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from 'react-router-dom'
+
 import { RoleProvider, useRole } from './RoleContext'
 import { BasketProvider } from './features/lookup/BasketContext'
 
 import Layout from './components/Layout'
 
+// Worker
 import Home from './features/lookup/Home'
 import Search from './features/lookup/Search'
 import ProductDetails from './features/lookup/ProductDetails'
@@ -12,6 +20,7 @@ import SalesToday from './features/lookup/SalesToday'
 import EndOfDay from './features/lookup/EndOfDay'
 import Account from './features/lookup/Account'
 
+// Owner
 import Products from './features/owner/Products'
 import AddProduct from './features/owner/AddProduct'
 import EditProduct from './features/owner/EditProduct'
@@ -22,6 +31,11 @@ import Count from './features/owner/Count'
 import Dashboard from './features/owner/Dashboard'
 import Sales from './features/owner/Sales'
 import Settings from './features/owner/Settings'
+
+// Owner → Workers
+import Workers from './features/owner/workers/Workers'
+import AddWorker from './features/owner/workers/AddWorker'
+import WorkerProfile from './features/owner/workers/WorkerProfile'
 
 function OwnerOnly() {
   const { role } = useRole()
@@ -42,7 +56,10 @@ export default function App() {
               {/* Worker */}
               <Route index element={<Home />} />
 
-              <Route path="search" element={<Search />} />
+              <Route
+                path="search"
+                element={<Search />}
+              />
 
               <Route
                 path="product/:id"
@@ -72,12 +89,23 @@ export default function App() {
               {/* Keep old URL working */}
               <Route
                 path="sales-today"
-                element={<Navigate to="/sales" replace />}
+                element={
+                  <Navigate
+                    to="/sales"
+                    replace
+                  />
+                }
               />
 
               {/* Owner */}
-              <Route path="owner" element={<OwnerOnly />}>
-                <Route index element={<Dashboard />} />
+              <Route
+                path="owner"
+                element={<OwnerOnly />}
+              >
+                <Route
+                  index
+                  element={<Dashboard />}
+                />
 
                 <Route
                   path="sales"
@@ -119,6 +147,22 @@ export default function App() {
                   element={<Categories />}
                 />
 
+                {/* Workers */}
+                <Route
+                  path="workers"
+                  element={<Workers />}
+                />
+
+                <Route
+                  path="workers/:id"
+                  element={<WorkerProfile />}
+                />
+
+                <Route
+                  path="workers/new"
+                  element={<AddWorker />}
+                />
+
                 <Route
                   path="settings"
                   element={<Settings />}
@@ -128,7 +172,12 @@ export default function App() {
               {/* Unknown route */}
               <Route
                 path="*"
-                element={<Navigate to="/" replace />}
+                element={
+                  <Navigate
+                    to="/"
+                    replace
+                  />
+                }
               />
 
             </Route>
