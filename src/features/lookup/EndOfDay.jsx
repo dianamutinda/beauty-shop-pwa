@@ -1,14 +1,36 @@
 
 import { useNavigate } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { listTodaysSales } from '../../db/stock'
+import { formatKsh } from '../../lib/format'
 
 export default function EndOfDay() {
   const navigate = useNavigate()
+  const sales = useLiveQuery(() => listTodaysSales(), [])
+
+  const completedSales = sales?.filter((sale) => !sale.voided) ?? []
+
+  const totalSales = completedSales.reduce(
+    (sum, sale) => sum + sale.total,
+    0
+  )
+
+  const cashSales = completedSales
+    .filter((sale) => sale.paymentMethod === 'cash')
+    .reduce((sum, sale) => sum + sale.total, 0)
+
+  const mpesaSales = completedSales
+    .filter((sale) => sale.paymentMethod === 'mpesa')
+    .reduce((sum, sale) => sum + sale.total, 0)
+
+  const cardSales = completedSales
+    .filter((sale) => sale.paymentMethod === 'card')
+    .reduce((sum, sale) => sum + sale.total, 0)
 
   return (
     <div className="space-y-5 pb-6">
       {/* Header */}
       <div>
-
         <h1 className="text-xl font-semibold text-gray-900">
           End of Day
         </h1>
@@ -31,7 +53,7 @@ export default function EndOfDay() {
             </p>
 
             <p className="mt-1 text-lg font-semibold text-gray-900">
-              KSh 0
+              {sales === undefined ? '—' : formatKsh(totalSales)}
             </p>
           </div>
 
@@ -41,7 +63,7 @@ export default function EndOfDay() {
             </p>
 
             <p className="mt-1 text-lg font-semibold text-gray-900">
-              0
+              {sales === undefined ? '—' : completedSales.length}
             </p>
           </div>
 
@@ -51,7 +73,7 @@ export default function EndOfDay() {
             </p>
 
             <p className="mt-1 text-lg font-semibold text-gray-900">
-              KSh 0
+              {sales === undefined ? '—' : formatKsh(cashSales)}
             </p>
           </div>
 
@@ -61,7 +83,7 @@ export default function EndOfDay() {
             </p>
 
             <p className="mt-1 text-lg font-semibold text-gray-900">
-              KSh 0
+              {sales === undefined ? '—' : formatKsh(mpesaSales)}
             </p>
           </div>
         </div>
@@ -80,7 +102,7 @@ export default function EndOfDay() {
             </span>
 
             <span className="text-sm font-medium text-gray-800">
-              KSh 0
+              {sales === undefined ? '—' : formatKsh(cashSales)}
             </span>
           </div>
 
@@ -90,7 +112,7 @@ export default function EndOfDay() {
             </span>
 
             <span className="text-sm font-medium text-gray-800">
-              KSh 0
+              {sales === undefined ? '—' : formatKsh(mpesaSales)}
             </span>
           </div>
 
@@ -100,7 +122,7 @@ export default function EndOfDay() {
             </span>
 
             <span className="text-sm font-medium text-gray-800">
-              KSh 0
+              {sales === undefined ? '—' : formatKsh(cardSales)}
             </span>
           </div>
 
@@ -111,25 +133,12 @@ export default function EndOfDay() {
               </span>
 
               <span className="text-base font-semibold text-pink-700">
-                KSh 0
+                {sales === undefined ? '—' : formatKsh(totalSales)}
               </span>
             </div>
           </div>
         </div>
       </section>
-
-      {/* Placeholder notice */}
-      <div className="rounded-2xl bg-pink-50 px-5 py-4">
-        <p className="text-sm font-medium text-pink-800">
-          End-of-day reporting is coming later
-        </p>
-
-        <p className="mt-1 text-xs leading-5 text-pink-600">
-          This screen is ready for the daily sales summary,
-          payment breakdown, and closing workflow once reporting
-          is connected.
-        </p>
-      </div>
 
       {/* Actions */}
       <div className="space-y-2">
@@ -141,13 +150,6 @@ export default function EndOfDay() {
           View Today's Sales
         </button>
 
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="w-full rounded-2xl border border-pink-200 bg-white py-3.5 text-sm font-medium text-gray-700"
-        >
-          Back Home
-        </button>
       </div>
     </div>
   )
