@@ -35,20 +35,51 @@ export async function listCategoriesWithCounts() {
 
 export async function renameCategory(id, name) {
   const clean = name.trim()
-  if (!clean) throw new Error('Category name is required')
+
+  if (!clean) {
+    throw new Error('Category name is required')
+  }
+
+  const shopId = await getShopId()
+  const category = await db.categories.get(id)
+
+  if (!category || category.shopId !== shopId) {
+    throw new Error('Category not found')
+  }
+
   await assertCategoryNameFree(clean, id)
 
-  const count = await db.categories.update(id, { name: clean, synced: 0 })
-  if (count === 0) throw new Error('Category not found')
+  await db.categories.update(id, {
+    name: clean,
+    synced: 0,
+  })
 }
 
 export async function deleteCategory(id) {
-  const inUse = await db.products.where('categoryId').equals(id).count()
-  if (inUse > 0) {
-    throw new Error(`${inUse} ${inUse === 1 ? 'product uses' : 'products use'} this category. Move them first.`)
+  const shopId = await getShopId()
+  const category = await db.categories.get(id)
+
+  if (!category || category.shopId !== shopId) {
+    throw new Error('Category not found')
   }
+
+  const inUse = await db.products
+    .where('categoryId')
+    .equals(id)
+    .count()
+
+  if (inUse > 0) {
+    throw new Error(
+      `${inUse} ${
+        inUse === 1 ? 'product uses' : 'products use'
+      } this category. Move them first.`
+    )
+  }
+
   await db.categories.delete(id)
 }
+
+
 
 export async function listCategories() {
   const shopId = await getShopId()

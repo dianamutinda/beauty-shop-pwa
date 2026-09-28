@@ -1,6 +1,8 @@
+
 import { Link } from 'react-router-dom'
 import {
   UsersRound,
+  Tags,
   Activity,
   Boxes,
   ClipboardCheck,
@@ -15,6 +17,12 @@ const ITEMS = [
     label: 'Workers',
     description: 'Manage workers and their accounts',
     icon: UsersRound,
+  },
+  {
+    to: '/owner/categories',
+    label: 'Categories',
+    description: 'Organize products into categories',
+    icon: Tags,
   },
   {
     to: '/owner/activity',
@@ -58,7 +66,10 @@ function MenuItem({ item }) {
       className="flex items-center gap-3 rounded-xl border border-pink-100 bg-white p-4 transition-colors hover:bg-pink-50"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-pink-50 text-pink-700">
-        <Icon size={19} strokeWidth={1.8} />
+        <Icon
+          size={19}
+          strokeWidth={1.8}
+        />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -86,7 +97,10 @@ function ComingSoonItem({ item }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-400">
-        <Icon size={19} strokeWidth={1.8} />
+        <Icon
+          size={19}
+          strokeWidth={1.8}
+        />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -151,3 +165,4 @@ export default function More() {
     </div>
   )
 }
+

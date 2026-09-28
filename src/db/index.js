@@ -22,3 +22,7 @@ db.version(3).stores({
 db.version(4).stores({
   workers: 'id, shopId, phone, role, active, synced',
 })
+
+db.version(5).stores({
+  categories: 'id, shopId, &[shopId+name], synced',
+})
