@@ -26,3 +26,7 @@ db.version(4).stores({
 db.version(5).stores({
   categories: 'id, shopId, &[shopId+name], synced',
 })
+
+db.version(6).stores({
+  syncQueue: '++seq, table, recordId, op, createdAt',
+})
