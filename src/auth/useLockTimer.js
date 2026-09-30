@@ -1,7 +1,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-const LOCK_AFTER_MS = 5 * 60 * 1000 // 5 minutes
+const LOCK_AFTER_MS = 1 * 60 * 1000 // 5 minutes
 
 export function useLockTimer() {
   const [locked, setLocked] = useState(false)

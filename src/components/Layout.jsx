@@ -1,28 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   NavLink,
   Outlet,
   useLocation,
-  useNavigate,
 } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   House,
+  Search,
   Receipt,
   ChartNoAxesColumnIncreasing,
   UserRound,
   LayoutDashboard,
   Package,
-  Boxes,
-  Tags,
-  Settings,
   Menu,
 } from 'lucide-react'
 
-import { useRole } from '../RoleContext'
+import { useRole } from '../auth/AuthContext'
 import { getShop } from '../db/shop'
-import { hasPin } from '../db/settings'
-import PinDialog from './PinDialog'
+import { hasPinSet } from '../auth/pin'
+import { useLockTimer } from '../auth/useLockTimer'
+import { LockScreen } from '../auth/LockScreen'
 
 const WORKER_NAV = [
   {
@@ -56,8 +54,13 @@ const OWNER_NAV = [
     end: true,
   },
   {
-    to: '/owner/sales',
-    label: 'Sales',
+    to: '/search',
+    label: 'Search',
+    icon: Search,
+  },
+  {
+    to: '/sale',
+    label: 'Record Sale',
     icon: Receipt,
   },
   {
@@ -73,34 +76,20 @@ const OWNER_NAV = [
 ]
 
 export default function Layout() {
-  const { role, switchRole } = useRole()
-  const navigate = useNavigate()
+  const { role, user } = useRole()
   const location = useLocation()
 
   const shop = useLiveQuery(() => getShop(), [])
 
-  const [askingPin, setAskingPin] = useState(false)
+  const [pinReady, setPinReady] = useState(false)
+  const { locked, unlock } = useLockTimer()
 
-  function go(next) {
-    switchRole(next)
-    navigate(next === 'owner' ? '/owner' : '/')
-  }
-
-  async function toggleRole() {
-    if (role === 'owner') {
-      go('worker')
-    } else if (await hasPin()) {
-      setAskingPin(true)
-    } else {
-      go('owner')
+  useEffect(() => {
+    if (user) {
+      hasPinSet(user.id).then(setPinReady)
     }
-  }
+  }, [user])
 
-  /*
-   * These are focused workflows.
-   * The reference design removes the bottom navigation
-   * while the worker is inside a sale or viewing a product.
-   */
   const hideWorkerNav =
     role === 'worker' &&
     (
@@ -108,10 +97,18 @@ export default function Layout() {
       location.pathname.startsWith('/product/')
     )
 
-  const navItems =
-    role === 'owner'
-      ? OWNER_NAV
-      : WORKER_NAV
+  const navItems = role === 'owner'
+    ? OWNER_NAV
+    : WORKER_NAV
+
+  if (pinReady && locked) {
+    return (
+      <LockScreen
+        userId={user.id}
+        onUnlock={unlock}
+      />
+    )
+  }
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-pink-50">
@@ -129,14 +126,6 @@ export default function Layout() {
               : 'Worker Dashboard'}
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={toggleRole}
-          className="shrink-0 rounded-full border border-pink-200 bg-white px-3 py-1.5 text-xs font-medium text-pink-700"
-        >
-          {role === 'owner' ? 'Owner' : 'Worker'}
-        </button>
       </header>
 
       {/* Page */}
@@ -151,7 +140,12 @@ export default function Layout() {
       {/* Bottom Navigation */}
       {!hideWorkerNav && (
         <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-md -translate-x-1/2 border-t border-pink-100 bg-white">
-          <div className="grid grid-cols-4">
+          <div
+            className="grid"
+            style={{
+              gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))`,
+            }}
+          >
             {navItems.map((item) => {
               const Icon = item.icon
 
@@ -175,11 +169,13 @@ export default function Layout() {
                       />
 
                       <span
-                        className={`text-[10px] ${
-                          isActive
-                            ? 'font-medium text-pink-600'
-                            : 'text-gray-400'
-                        }`}
+                        className={
+                          `text-[10px] ${
+                            isActive
+                              ? 'font-medium text-pink-600'
+                              : 'text-gray-400'
+                          }`
+                        }
                       >
                         {item.label}
                       </span>
@@ -190,17 +186,6 @@ export default function Layout() {
             })}
           </div>
         </nav>
-      )}
-
-      {/* PIN dialog */}
-      {askingPin && (
-        <PinDialog
-          onCancel={() => setAskingPin(false)}
-          onSuccess={() => {
-            setAskingPin(false)
-            go('owner')
-          }}
-        />
       )}
     </div>
   )

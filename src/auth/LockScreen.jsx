@@ -1,8 +1,12 @@
-
+// src/auth/LockScreen.jsx — updated
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { verifyPin } from './pin'
+import { useRole } from './AuthContext'
 
 export function LockScreen({ userId, onUnlock }) {
+  const navigate = useNavigate()
+  const { signOut } = useRole()
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)
 
@@ -21,9 +25,14 @@ export function LockScreen({ userId, onUnlock }) {
     }
   }
 
+  async function handleForgotPin() {
+    await signOut()
+    navigate('/login', { state: { resetPin: true } })
+  }
+
   return (
     <div className="lock-screen">
-      <p>Enter PIN</p>
+      <p>Enter your PIN</p>
       <div className="pin-dots">
         {[0, 1, 2, 3].map((i) => (
           <span key={i} className={i < pin.length ? 'filled' : ''} />
@@ -37,7 +46,7 @@ export function LockScreen({ userId, onUnlock }) {
           </button>
         ))}
       </div>
-      <button className="forgot-pin" onClick={/* opens password-reset flow */ () => {}}>
+      <button className="forgot-pin" onClick={handleForgotPin}>
         Forgot PIN?
       </button>
     </div>
