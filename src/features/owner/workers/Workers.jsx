@@ -1,7 +1,6 @@
-
 import { Link } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { listWorkers } from '../../../db/workers'
+import { useEffect, useState } from 'react'
+import { supabase } from '../../../db/supabase'
 
 function WorkerCard({ worker }) {
   return (
@@ -12,11 +11,11 @@ function WorkerCard({ worker }) {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-gray-900">
-            {worker.name}
+            {worker.display_name}
           </p>
 
           <p className="mt-1 text-xs text-gray-400">
-            {worker.phone}
+            {worker.phone || 'No phone number'}
           </p>
         </div>
 
@@ -39,10 +38,30 @@ function WorkerCard({ worker }) {
 }
 
 export default function Workers() {
-  const workers = useLiveQuery(
-    () => listWorkers(),
-    []
-  )
+  const [workers, setWorkers] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function loadWorkers() {
+      setError('')
+
+      const { data, error: queryError } = await supabase
+        .from('profiles')
+        .select('id, display_name, phone, active')
+        .eq('role', 'worker')
+        .order('display_name')
+
+      if (queryError) {
+        setError(queryError.message)
+        setWorkers([])
+        return
+      }
+
+      setWorkers(data || [])
+    }
+
+    loadWorkers()
+  }, [])
 
   return (
     <div className="space-y-5">
@@ -82,7 +101,17 @@ export default function Workers() {
         </div>
       </div>
 
-      {!workers ? (
+      {error ? (
+        <div className="rounded-xl border border-red-100 bg-red-50 p-4">
+          <p className="text-sm font-medium text-red-700">
+            Could not load workers
+          </p>
+
+          <p className="mt-1 text-xs text-red-600">
+            {error}
+          </p>
+        </div>
+      ) : !workers ? (
         <div className="rounded-xl border border-pink-100 bg-white p-6 text-center text-sm text-gray-400">
           Loading workers...
         </div>

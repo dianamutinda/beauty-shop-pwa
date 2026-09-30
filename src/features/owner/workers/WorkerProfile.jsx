@@ -1,27 +1,16 @@
-
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
-import {
-  getWorker,
-  updateWorker,
-  deactivateWorker,
-  activateWorker,
-} from '../../../db/workers'
+import { supabase } from '../../../db/supabase'
 
 export default function WorkerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const worker = useLiveQuery(
-    () => getWorker(id),
-    [id]
-  )
-
+  const [worker, setWorker] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({
     name: '',
     phone: '',
-    pin: '',
   })
 
   const [error, setError] = useState('')
@@ -30,14 +19,36 @@ export default function WorkerProfile() {
   const [showDeactivate, setShowDeactivate] = useState(false)
 
   useEffect(() => {
-    if (!worker) return
+    async function loadWorker() {
+      setLoading(true)
+      setError('')
 
-    setForm({
-      name: worker.name ?? '',
-      phone: worker.phone ?? '',
-      pin: '',
-    })
-  }, [worker])
+      const { data, error: queryError } = await supabase
+        .from('profiles')
+        .select('id, display_name, phone, active, role')
+        .eq('id', id)
+        .eq('role', 'worker')
+        .single()
+
+      if (queryError) {
+        setWorker(null)
+        setError(queryError.message)
+        setLoading(false)
+        return
+      }
+
+      setWorker(data)
+
+      setForm({
+        name: data.display_name ?? '',
+        phone: data.phone ?? '',
+      })
+
+      setLoading(false)
+    }
+
+    loadWorker()
+  }, [id])
 
   function updateField(event) {
     const { name, value } = event.target
@@ -54,17 +65,22 @@ export default function WorkerProfile() {
     setSaving(true)
 
     try {
-      const changes = {
-        name: form.name,
-        phone: form.phone,
+      const { data, error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          display_name: form.name.trim(),
+          phone: form.phone.trim() || null,
+        })
+        .eq('id', id)
+        .eq('role', 'worker')
+        .select('id, display_name, phone, active, role')
+        .single()
+
+      if (updateError) {
+        throw updateError
       }
 
-      if (form.pin.trim()) {
-        changes.pin = form.pin
-      }
-
-      await updateWorker(id, changes)
-
+      setWorker(data)
       navigate('/owner/workers')
     } catch (err) {
       setError(err.message || 'Could not update worker')
@@ -78,7 +94,21 @@ export default function WorkerProfile() {
     setDeactivating(true)
 
     try {
-      await deactivateWorker(id)
+      const { data, error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          active: false,
+        })
+        .eq('id', id)
+        .eq('role', 'worker')
+        .select('id, display_name, phone, active, role')
+        .single()
+
+      if (updateError) {
+        throw updateError
+      }
+
+      setWorker(data)
       setShowDeactivate(false)
     } catch (err) {
       setError(err.message || 'Could not deactivate worker')
@@ -92,7 +122,21 @@ export default function WorkerProfile() {
     setSaving(true)
 
     try {
-      await activateWorker(id)
+      const { data, error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          active: true,
+        })
+        .eq('id', id)
+        .eq('role', 'worker')
+        .select('id, display_name, phone, active, role')
+        .single()
+
+      if (updateError) {
+        throw updateError
+      }
+
+      setWorker(data)
     } catch (err) {
       setError(err.message || 'Could not activate worker')
     } finally {
@@ -100,7 +144,7 @@ export default function WorkerProfile() {
     }
   }
 
-  if (worker === undefined) {
+  if (loading) {
     return (
       <div className="rounded-xl border border-pink-100 bg-white p-6 text-center text-sm text-gray-400">
         Loading worker...
@@ -108,7 +152,7 @@ export default function WorkerProfile() {
     )
   }
 
-  if (worker === null) {
+  if (!worker) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-1.5 text-xs">
@@ -139,6 +183,12 @@ export default function WorkerProfile() {
           <p className="text-sm font-medium text-gray-700">
             Worker not found
           </p>
+
+          {error && (
+            <p className="mt-2 text-xs text-red-600">
+              {error}
+            </p>
+          )}
 
           <Link
             to="/owner/workers"
@@ -239,35 +289,7 @@ export default function WorkerProfile() {
             value={form.phone}
             onChange={updateField}
             className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-pink-400"
-            required
           />
-        </div>
-
-        <div>
-          <label
-            htmlFor="pin"
-            className="mb-1.5 block text-xs font-medium text-gray-700"
-          >
-            New PIN
-          </label>
-
-          <input
-            id="pin"
-            name="pin"
-            type="password"
-            inputMode="numeric"
-            pattern="[0-9]{4,6}"
-            maxLength={6}
-            value={form.pin}
-            onChange={updateField}
-            placeholder="Leave blank to keep current PIN"
-            autoComplete="new-password"
-            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-pink-400"
-          />
-
-          <p className="mt-1.5 text-xs text-gray-400">
-            Enter a new 4–6 digit PIN only if you want to change it.
-          </p>
         </div>
 
         {error && (
@@ -292,8 +314,8 @@ export default function WorkerProfile() {
           </h3>
 
           <p className="mt-1 text-xs leading-5 text-gray-500">
-            This keeps the worker's history but prevents the account
-            from being used.
+            This keeps the worker's history but prevents the
+            account from being used.
           </p>
 
           {!showDeactivate ? (
@@ -307,7 +329,8 @@ export default function WorkerProfile() {
           ) : (
             <div className="mt-3 rounded-lg bg-red-50 p-3">
               <p className="text-xs text-red-700">
-                Are you sure you want to deactivate {worker.name}?
+                Are you sure you want to deactivate{' '}
+                {worker.display_name}?
               </p>
 
               <div className="mt-3 flex gap-2">
@@ -360,4 +383,3 @@ export default function WorkerProfile() {
     </div>
   )
 }
-
