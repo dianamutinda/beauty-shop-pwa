@@ -1,3 +1,4 @@
+
 import {
   HashRouter,
   Routes,
@@ -41,6 +42,11 @@ import Workers from './features/owner/workers/Workers'
 import AddWorker from './features/owner/workers/AddWorker'
 import WorkerProfile from './features/owner/workers/WorkerProfile'
 
+// Super Admin
+import SuperAdminLayout from './features/superAdmin/SuperAdminLayout'
+import SuperAdminDashboard from './features/superAdmin/Dashboard'
+import SuperAdminShops from './features/superAdmin/Shops'
+
 
 function RequireAuth() {
   const { user, loading } = useRole()
@@ -65,7 +71,7 @@ function OwnerOnly() {
   return role === 'owner'
     ? <Outlet />
     : <Navigate to="/" replace />
-}
+  }
 
 
 export default function App() {
@@ -82,7 +88,20 @@ export default function App() {
               element={<Login />}
             />
 
-            {/* Authenticated */}
+            {/* Super Admin - UI testing for now */}
+            <Route element={<SuperAdminLayout />}>
+              <Route
+                path="/super-admin"
+                element={<SuperAdminDashboard />}
+              />
+
+              <Route
+                path="/super-admin/shops"
+                element={<SuperAdminShops />}
+              />
+            </Route>
+
+            {/* Authenticated Shop App */}
             <Route element={<RequireAuth />}>
               <Route element={<Layout />}>
 
