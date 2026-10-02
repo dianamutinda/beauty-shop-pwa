@@ -1,31 +1,55 @@
 import { db } from './index'
+import { supabase } from './supabase'
 
-async function loadOrCreateShopId() {
-  const setting = await db.settings.get('shopId')
-  if (setting) return setting.value
+export async function cacheShopForUser(userId) {
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('shop_id')
+    .eq('id', userId)
+    .maybeSingle()
+  if (profileError) throw profileError
+  if (!profile) throw new Error('No profile row found (or RLS blocked it) for this user.')
+  if (!profile.shop_id) throw new Error('Your profile has no shop_id set.')
 
-  const id = crypto.randomUUID()
+  const { data: shop, error: shopError } = await supabase
+    .from('shops')
+    .select('*')
+    .eq('id', profile.shop_id)
+    .maybeSingle()
+  if (shopError) throw shopError
+  if (!shop) throw new Error('Shop row not found (or RLS blocked it).')
+
   await db.transaction('rw', db.shops, db.settings, async () => {
-    await db.shops.add({
-      id,
-      name: 'My Shop',
-      createdAt: new Date().toISOString(),
-    })
-    await db.settings.put({ key: 'shopId', value: id })
+    await db.shops.put({ id: shop.id, name: shop.name, createdAt: shop.created_at })
+    await db.settings.put({ key: 'shopId', value: shop.id })
+    await db.settings.put({ key: 'cachedUserId', value: userId })
   })
-  return id
 }
 
-let shopIdPromise
+export async function ensureShopForUser(userId) {
+  const [cachedUser, cachedShop] = await Promise.all([
+    db.settings.get('cachedUserId'),
+    db.settings.get('shopId'),
+  ])
 
-export function getShopId() {
-  if (!shopIdPromise) shopIdPromise = loadOrCreateShopId()
-  return shopIdPromise
+  if (cachedUser?.value === userId && cachedShop) {
+    if (navigator.onLine) cacheShopForUser(userId).catch(() => {})
+    return
+  }
+
+  if (!navigator.onLine) {
+    throw new Error('Connect to the internet to sign in on this phone for the first time.')
+  }
+  await cacheShopForUser(userId)
 }
 
-export function ensureShop() {
-  return getShopId()
+export async function getShopId() {
+  const setting = await db.settings.get('shopId')
+  if (!setting) throw new Error('No shop loaded yet. Sign in first.')
+  return setting.value
 }
+
+export const ensureShop = getShopId
 
 export async function getShop() {
   const id = await getShopId()
