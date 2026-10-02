@@ -37,7 +37,16 @@ export async function addCategory({ name, icon = null }) {
     synced: 0,
   }
 
-  await db.categories.add(category)
+  // Save the category and its sync queue entry atomically.
+  await db.transaction(
+    'rw',
+    db.categories,
+    db.syncQueue,
+    async () => {
+      await db.categories.add(category)
+      await enqueue('categories', category.id)
+    }
+  )
 
   return category
 }
@@ -79,10 +88,20 @@ export async function renameCategory(id, name) {
 
   await assertCategoryNameFree(clean, id)
 
-  await db.categories.update(id, {
-    name: clean,
-    synced: 0,
-  })
+  // Save the rename and its sync queue entry atomically.
+  await db.transaction(
+    'rw',
+    db.categories,
+    db.syncQueue,
+    async () => {
+      await db.categories.update(id, {
+        name: clean,
+        synced: 0,
+      })
+
+      await enqueue('categories', id)
+    }
+  )
 }
 
 export async function deleteCategory(id) {

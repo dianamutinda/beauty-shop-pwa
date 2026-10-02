@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../db/supabase'
 import { ensureShopForUser } from '../db/shop'
 import { saveIdentity, loadIdentity, clearIdentity } from '../db/identity'
+import { startSyncTriggers } from '../db/syncTriggers'
 
 const AuthContext = createContext(null)
 
@@ -74,6 +75,10 @@ export function AuthProvider({ children }) {
       listener.subscription.unsubscribe()
     }
   }, [])
+  useEffect(() => {
+  if (!session) return
+  return startSyncTriggers()
+}, [session?.user?.id])
 
 function friendlyError(err) {
   const networky =
