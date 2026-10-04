@@ -9,7 +9,6 @@ export function productToRow(p) {
     buying_price: p.buyingPrice,
     description: p.description,
     attributes: p.attributes,
-    stock: p.stock,
     low_stock_level: p.lowStockLevel ?? null,
     updated_at: p.lastUpdated,
   }
@@ -32,5 +31,26 @@ export function movementToRow(m) {
     quantity: m.quantity,
     timestamp: m.timestamp,
     note: m.note ?? null,
+  }
+}
+export function rowToCategory(r) {
+  return { id: r.id, shopId: r.shop_id, name: r.name, icon: r.icon ?? null, synced: 1 }
+}
+
+export function rowToProduct(r) {
+  return {
+    id: r.id,
+    shopId: r.shop_id,
+    sku: r.sku,
+    name: r.name,
+    categoryId: r.category_id,
+    sellingPrice: Number(r.selling_price),
+    buyingPrice: r.buying_price === null ? null : Number(r.buying_price),
+    description: r.description ?? '',
+    attributes: r.attributes ?? {},
+    stock: Number(r.stock ?? 0),
+    lowStockLevel: r.low_stock_level ?? undefined,
+    lastUpdated: r.updated_at,
+    synced: 1,
   }
 }

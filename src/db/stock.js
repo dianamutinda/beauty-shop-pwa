@@ -1,6 +1,8 @@
+
 import { db } from './index'
 import { getShopId } from './shop'
 import { addActivity } from './activity'
+import { enqueue } from './syncQueue'
 
 const MOVEMENT_TYPES = ['restock', 'sale', 'adjustment']
 
@@ -51,6 +53,7 @@ export async function recordStockMovement(
     'rw',
     db.products,
     db.stockMovements,
+    db.syncQueue,
     async () => {
       const product = await db.products.get(productId)
 
@@ -66,8 +69,10 @@ export async function recordStockMovement(
         )
       }
 
+      const movementId = crypto.randomUUID()
+
       await db.stockMovements.add({
-        id: crypto.randomUUID(),
+        id: movementId,
         shopId,
         productId,
         type,
@@ -78,6 +83,12 @@ export async function recordStockMovement(
         timestamp,
         synced: 0,
       })
+
+      // Sales must go through record_sale, so only queue
+      // non-sale stock movements here.
+      if (type !== 'sale') {
+        await enqueue('stockMovements', movementId)
+      }
 
       await db.products.update(productId, {
         stock: newStock,
@@ -115,6 +126,7 @@ export async function applyStockCount(counts) {
     'rw',
     db.products,
     db.stockMovements,
+    db.syncQueue,
     async () => {
       let adjusted = 0
 
@@ -127,8 +139,10 @@ export async function applyStockCount(counts) {
 
         if (difference === 0) continue
 
+        const movementId = crypto.randomUUID()
+
         await db.stockMovements.add({
-          id: crypto.randomUUID(),
+          id: movementId,
           shopId,
           productId,
           type: 'adjustment',
@@ -137,6 +151,8 @@ export async function applyStockCount(counts) {
           timestamp,
           synced: 0,
         })
+
+        await enqueue('stockMovements', movementId)
 
         await db.products.update(productId, {
           stock: counted,
@@ -150,6 +166,33 @@ export async function applyStockCount(counts) {
       return adjusted
     }
   )
+}
+
+/**
+ * Temporary recovery helper.
+ *
+ * Re-queues local stock movements that were created but never
+ * added to the sync queue.
+ *
+ * Remove this helper after the existing unsynced movements
+ * have been recovered.
+ */
+export async function requeueUnsyncedMovements() {
+  const rows = await db.stockMovements
+    .filter(
+      (m) =>
+        m.synced === 0 &&
+        !m.saleId &&
+        m.type !== 'sale' &&
+        m.type !== 'void'
+    )
+    .toArray()
+
+  for (const movement of rows) {
+    await enqueue('stockMovements', movement.id)
+  }
+
+  return rows.length
 }
 
 export async function recordSale(
@@ -182,9 +225,7 @@ export async function recordSale(
         price !== undefined &&
         (!Number.isFinite(price) || price < 0)
       ) {
-        throw new Error(
-          'Prices must be numbers, 0 or more'
-        )
+        throw new Error('Prices must be numbers, 0 or more')
       }
     }
   }
@@ -198,6 +239,7 @@ export async function recordSale(
     db.products,
     db.stockMovements,
     db.activity,
+    db.syncQueue,
     async () => {
       const results = []
       let total = 0
@@ -212,9 +254,7 @@ export async function recordSale(
         const product = await db.products.get(productId)
 
         if (!product) {
-          throw new Error(
-            `Product ${productId} not found`
-          )
+          throw new Error(`Product ${productId} not found`)
         }
 
         const newStock = product.stock - quantity
@@ -225,11 +265,8 @@ export async function recordSale(
           )
         }
 
-        const saleUnitPrice =
-          unitPrice ?? product.sellingPrice
-
-        const saleListPrice =
-          listPrice ?? product.sellingPrice
+        const saleUnitPrice = unitPrice ?? product.sellingPrice
+        const saleListPrice = listPrice ?? product.sellingPrice
 
         await db.stockMovements.add({
           id: crypto.randomUUID(),
@@ -260,15 +297,14 @@ export async function recordSale(
         })
       }
 
-      await addActivity(
-        shopId,
-        'sale.recorded',
-        {
-          saleId,
-          total,
-          itemCount: items.length,
-        }
-      )
+      // One entry per sale: the server records the whole basket at once.
+      await enqueue('sales', saleId)
+
+      await addActivity(shopId, 'sale.recorded', {
+        saleId,
+        total,
+        itemCount: items.length,
+      })
 
       return {
         saleId,
@@ -285,15 +321,11 @@ export async function voidSale(saleId) {
     .toArray()
 
   if (movements.length === 0) {
-    throw new Error(
-      `No sale found with id ${saleId}`
-    )
+    throw new Error(`No sale found with id ${saleId}`)
   }
 
   if (movements.some((m) => m.voidedAt)) {
-    throw new Error(
-      'This sale has already been voided'
-    )
+    throw new Error('This sale has already been voided')
   }
 
   const shopId = await getShopId()
@@ -301,9 +333,7 @@ export async function voidSale(saleId) {
 
   const total = movements.reduce(
     (sum, movement) =>
-      sum +
-      (-movement.quantity) *
-        (movement.unitPrice ?? 0),
+      sum + -movement.quantity * (movement.unitPrice ?? 0),
     0
   )
 
@@ -312,22 +342,16 @@ export async function voidSale(saleId) {
     db.products,
     db.stockMovements,
     db.activity,
+    db.syncQueue,
     async () => {
       for (const original of movements) {
         const reversalQty = -original.quantity
 
-        const product = await db.products.get(
-          original.productId
-        )
+        const product = await db.products.get(original.productId)
 
         if (!product) {
-          throw new Error(
-            `Product ${original.productId} not found`
-          )
+          throw new Error(`Product ${original.productId} not found`)
         }
-
-        const newStock =
-          product.stock + reversalQty
 
         await db.stockMovements.add({
           id: crypto.randomUUID(),
@@ -345,31 +369,24 @@ export async function voidSale(saleId) {
           synced: 0,
         })
 
-        await db.products.update(
-          original.productId,
-          {
-            stock: newStock,
-            lastUpdated: timestamp,
-            synced: 0,
-          }
-        )
+        await db.products.update(original.productId, {
+          stock: product.stock + reversalQty,
+          lastUpdated: timestamp,
+          synced: 0,
+        })
 
-        await db.stockMovements.update(
-          original.id,
-          {
-            voidedAt: timestamp,
-          }
-        )
+        await db.stockMovements.update(original.id, {
+          voidedAt: timestamp,
+        })
       }
 
-      await addActivity(
-        shopId,
-        'sale.voided',
-        {
-          saleId,
-          total,
-        }
-      )
+      // One entry per sale: the server reverses every item in one call.
+      await enqueue('voids', saleId)
+
+      await addActivity(shopId, 'sale.voided', {
+        saleId,
+        total,
+      })
 
       return {
         saleId,

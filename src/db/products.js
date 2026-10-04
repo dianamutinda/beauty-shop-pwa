@@ -125,7 +125,16 @@ export async function deleteCategory(id) {
     )
   }
 
-  await db.categories.delete(id)
+  // Delete the category and queue the delete operation atomically.
+  await db.transaction(
+    'rw',
+    db.categories,
+    db.syncQueue,
+    async () => {
+      await db.categories.delete(id)
+      await enqueue('categories', id, 'delete')
+    }
+  )
 }
 
 export async function listCategories() {
@@ -284,15 +293,25 @@ export async function updateProduct(id, changes) {
     )
   }
 
-  const count = await db.products.update(id, {
-    ...updates,
-    lastUpdated: new Date().toISOString(),
-    synced: 0,
-  })
+  // Save the product update and queue entry atomically.
+  await db.transaction(
+    'rw',
+    db.products,
+    db.syncQueue,
+    async () => {
+      const count = await db.products.update(id, {
+        ...updates,
+        lastUpdated: new Date().toISOString(),
+        synced: 0,
+      })
 
-  if (count === 0) {
-    throw new Error(`Product ${id} not found`)
-  }
+      if (count === 0) {
+        throw new Error(`Product ${id} not found`)
+      }
+
+      await enqueue('products', id)
+    }
+  )
 }
 
 export async function searchProducts(query) {

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchProducts } from '../../db/products'
@@ -67,101 +68,100 @@ export default function SaleFlow() {
     setError('')
   }
 
+  async function handleConfirm() {
+    if (basket.items.length === 0) {
+      setError('Add at least one product before saving the sale.')
+      return
+    }
 
-async function handleConfirm() {
-  if (basket.items.length === 0) {
-    setError('Add at least one product before saving the sale.')
-    return
+    setSaving(true)
+    setError('')
+
+    try {
+      const items = basket.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        listPrice: item.sellingPrice,
+      }))
+
+      // Calculate the total before clearing the basket.
+      const total = basket.items.reduce(
+        (sum, item) => sum + item.quantity * item.unitPrice,
+        0
+      )
+
+      const result = await recordSale(items, paymentMethod)
+
+      // The sale is now saved, so there is no longer
+      // an active/current basket.
+      basket.clear()
+
+      setSaved({
+        ...result,
+        total,
+      })
+
+      setVoided(false)
+      setUndoSecondsLeft(15)
+      setStep('confirmation')
+    } catch (err) {
+      console.error(err)
+      setError(err?.message || 'Could not save the sale.')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  setSaving(true)
-  setError('')
+  async function handleUndo() {
+    if (!saved?.saleId || voided) return
 
-  try {
-    const items = basket.items.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      listPrice: item.sellingPrice,
-    }))
+    // Do not allow cancellation after the 15-second window.
+    if (undoSecondsLeft <= 0) {
+      setShowUndoModal(false)
+      return
+    }
 
-    // Calculate the total before clearing the basket.
-    const total = basket.items.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0
-    )
+    setVoiding(true)
+    setError('')
 
-    const result = await recordSale(items, paymentMethod)
+    try {
+      await voidSale(saved.saleId)
 
-    // The sale is now saved, so there is no longer
-    // an active/current basket.
-    basket.clear()
-
-    setSaved({
-      ...result,
-      total,
-    })
-
-    setVoided(false)
-    setUndoSecondsLeft(15)
-    setStep('confirmation')
-  } catch (err) {
-    console.error(err)
-    setError(err?.message || 'Could not save the sale.')
-  } finally {
-    setSaving(false)
-  }
-}
-
-async function handleUndo() {
-  if (!saved?.saleId || voided) return
-
-  // Do not allow cancellation after the 10-second window.
-  if (undoSecondsLeft <= 0) {
-    setShowUndoModal(false)
-    return
+      setVoided(true)
+      setShowUndoModal(false)
+      setUndoSecondsLeft(0)
+    } catch (err) {
+      console.error(err)
+      setError(err?.message || 'Could not cancel the sale.')
+    } finally {
+      setVoiding(false)
+    }
   }
 
-  setVoiding(true)
-  setError('')
+  useEffect(() => {
+    if (step !== 'confirmation' || !saved || voided) {
+      return
+    }
 
-  try {
-    await voidSale(saved.saleId)
+    const timer = setInterval(() => {
+      setUndoSecondsLeft((seconds) => {
+        if (seconds <= 1) {
+          clearInterval(timer)
 
-    setVoided(true)
-    setShowUndoModal(false)
-    setUndoSecondsLeft(0)
-  } catch (err) {
-    console.error(err)
-    setError(err?.message || 'Could not cancel the sale.')
-  } finally {
-    setVoiding(false)
-  }
-}
+          // If the dialog is still open when time runs out,
+          // close it because the cancellation window has expired.
+          setShowUndoModal(false)
 
-useEffect(() => {
-  if (step !== 'confirmation' || !saved || voided) {
-    return
-  }
+          return 0
+        }
 
-  const timer = setInterval(() => {
-    setUndoSecondsLeft((seconds) => {
-      if (seconds <= 1) {
-        clearInterval(timer)
+        return seconds - 1
+      })
+    }, 1000)
 
-        // If the dialog is still open when time runs out,
-        // close it because the cancellation window has expired.
-        setShowUndoModal(false)
-
-        return 0
-      }
-
-      return seconds - 1
-    })
-  }, 1000)
-
-  return () => clearInterval(timer)
-}, [step, saved, voided])
+    return () => clearInterval(timer)
+  }, [step, saved, voided])
 
   function startNewSale() {
     basket.clear()
@@ -178,25 +178,6 @@ useEffect(() => {
     setError('')
     setStep('basket')
   }
-
-  useEffect(() => {
-    if (step !== 'confirmation' || !saved || voided) {
-      return
-    }
-
-    const timer = setInterval(() => {
-      setUndoSecondsLeft((seconds) => {
-        if (seconds <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-
-        return seconds - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [step, saved, voided])
 
   if (step === 'basket') {
     return (
@@ -617,129 +598,129 @@ useEffect(() => {
     )
   }
 
-if (step === 'confirmation') {
-  return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-pink-100 bg-white px-5 py-8 text-center">
-        <div
-          className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full text-xl ${
-            voided
-              ? 'bg-amber-50 text-amber-600'
-              : 'bg-pink-50 text-pink-600'
-          }`}
-        >
-          {voided ? '✓' : '✓'}
+  if (step === 'confirmation') {
+    return (
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-pink-100 bg-white px-5 py-8 text-center">
+          <div
+            className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full text-xl ${
+              voided
+                ? 'bg-amber-50 text-amber-600'
+                : 'bg-pink-50 text-pink-600'
+            }`}
+          >
+            {voided ? '✓' : '✓'}
+          </div>
+
+          <h2 className="mt-4 text-xl font-semibold text-gray-900">
+            {voided ? 'Sale cancelled' : 'Sale saved'}
+          </h2>
+
+          <p className="mt-1 text-sm text-gray-500">
+            {voided
+              ? 'The sale was cancelled and the stock was restored.'
+              : 'The sale has been recorded successfully.'}
+          </p>
+
+          {saved && (
+            <div className="mt-5 rounded-xl bg-pink-50 px-4 py-3">
+              <p className="text-xs text-gray-500">
+                Total
+              </p>
+
+              <p className="mt-1 text-lg font-semibold text-pink-700">
+                {formatKsh(saved.total)}
+              </p>
+            </div>
+          )}
         </div>
 
-        <h2 className="mt-4 text-xl font-semibold text-gray-900">
-          {voided ? 'Sale cancelled' : 'Sale saved'}
-        </h2>
+        {undoSecondsLeft > 0 && !voided && (
+          <div className="rounded-2xl border border-pink-100 bg-white p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-800">
+                  Need to cancel this sale?
+                </p>
 
-        <p className="mt-1 text-sm text-gray-500">
-          {voided
-            ? 'The sale was cancelled and the stock was restored.'
-            : 'The sale has been recorded successfully.'}
-        </p>
+                <p className="mt-1 text-xs text-gray-400">
+                  You have {undoSecondsLeft}s to cancel it.
+                </p>
+              </div>
 
-        {saved && (
-          <div className="mt-5 rounded-xl bg-pink-50 px-4 py-3">
-            <p className="text-xs text-gray-500">
-              Total
-            </p>
+              <button
+                type="button"
+                onClick={() => setShowUndoModal(true)}
+                className="shrink-0 rounded-xl border border-pink-200 px-3 py-2 text-xs font-medium text-pink-700"
+              >
+                Cancel sale
+              </button>
+            </div>
+          </div>
+        )}
 
-            <p className="mt-1 text-lg font-semibold text-pink-700">
-              {formatKsh(saved.total)}
-            </p>
+        {error && (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={startNewSale}
+            className="w-full rounded-2xl bg-pink-600 py-3.5 text-sm font-medium text-white"
+          >
+            Next Sale
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="w-full rounded-2xl border border-pink-200 bg-white py-3.5 text-sm font-medium text-gray-700"
+          >
+            Back Home
+          </button>
+        </div>
+
+        {showUndoModal && undoSecondsLeft > 0 && !voided && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-lg">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Cancel this sale?
+              </h3>
+
+              <p className="mt-2 text-sm text-gray-500">
+                This will cancel the sale and restore the stock.
+              </p>
+
+              <p className="mt-2 text-xs text-gray-400">
+                You have {undoSecondsLeft}s remaining.
+              </p>
+
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUndoModal(false)}
+                  disabled={voiding}
+                  className="flex-1 rounded-xl border border-pink-200 py-3 text-sm font-medium text-gray-700 disabled:opacity-50"
+                >
+                  Keep sale
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  disabled={voiding || undoSecondsLeft <= 0}
+                  className="flex-1 rounded-xl bg-pink-600 py-3 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {voiding ? 'Cancelling...' : 'Cancel sale'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {undoSecondsLeft > 0 && !voided && (
-        <div className="rounded-2xl border border-pink-100 bg-white p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-800">
-                Need to cancel this sale?
-              </p>
-
-              <p className="mt-1 text-xs text-gray-400">
-                You have {undoSecondsLeft}s to cancel it.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowUndoModal(true)}
-              className="shrink-0 rounded-xl border border-pink-200 px-3 py-2 text-xs font-medium text-pink-700"
-            >
-              Cancel sale
-            </button>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={startNewSale}
-          className="w-full rounded-2xl bg-pink-600 py-3.5 text-sm font-medium text-white"
-        >
-          Next Sale
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="w-full rounded-2xl border border-pink-200 bg-white py-3.5 text-sm font-medium text-gray-700"
-        >
-          Back Home
-        </button>
-      </div>
-
-      {showUndoModal && undoSecondsLeft > 0 && !voided && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-lg">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Cancel this sale?
-            </h3>
-
-            <p className="mt-2 text-sm text-gray-500">
-              This will cancel the sale and restore the stock.
-            </p>
-
-            <p className="mt-2 text-xs text-gray-400">
-              You have {undoSecondsLeft}s remaining.
-            </p>
-
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowUndoModal(false)}
-                disabled={voiding}
-                className="flex-1 rounded-xl border border-pink-200 py-3 text-sm font-medium text-gray-700 disabled:opacity-50"
-              >
-                Keep sale
-              </button>
-
-              <button
-                type="button"
-                onClick={handleUndo}
-                disabled={voiding || undoSecondsLeft <= 0}
-                className="flex-1 rounded-xl bg-pink-600 py-3 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {voiding ? 'Cancelling...' : 'Cancel sale'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+    )
+  }
 }
