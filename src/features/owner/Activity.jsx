@@ -1,59 +1,60 @@
-
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listActivity } from '../../db/activity'
-
-function formatActivity(action) {
-  const labels = {
-    'worker.added': 'Worker added',
-    'worker.updated': 'Worker updated',
-    'sale.recorded': 'Sale recorded',
-    'sale.voided': 'Sale cancelled',
-  }
-
-  return labels[action] ?? action
-}
+import { listActivity, describeActivity } from '../../db/activity'
+import { subscribeSyncStatus } from '../../db/sync'
 
 function formatTime(timestamp) {
   const date = new Date(timestamp)
+  const today = new Date()
 
-  return date.toLocaleString([], {
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
+  const sameDay = date.toDateString() === today.toDateString()
+
+  const time = date.toLocaleTimeString('en-KE', {
+    hour: '2-digit',
     minute: '2-digit',
   })
-}
 
-function getDetails(activity) {
-  const details = activity.details ?? {}
-
-  if (activity.action === 'worker.added') {
-    return details.name ?? 'Worker'
+  if (sameDay) {
+    return time
   }
 
-  if (activity.action === 'worker.updated') {
-    return details.name ?? 'Worker details updated'
-  }
-
-  if (activity.action === 'sale.recorded') {
-    return 'Sale recorded'
-  }
-
-  if (activity.action === 'sale.voided') {
-    return 'Sale cancelled'
-  }
-
-  return ''
+  return `${date.toLocaleDateString('en-KE', {
+    day: 'numeric',
+    month: 'short',
+  })}, ${time}`
 }
 
 export default function Activity() {
-  const activities = useLiveQuery(
-    () => listActivity({ limit: 50 }),
-    []
-  )
+  const [activities, setActivities] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [lastSyncAt, setLastSyncAt] = useState(null)
 
-  if (!activities) {
+  // Reload activity after a sync finishes so activity
+  // pulled from other phones appears automatically.
+  useEffect(() => {
+    return subscribeSyncStatus((status) => {
+      setLastSyncAt(status.lastSyncAt)
+    })
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+
+    setLoading(true)
+
+    listActivity({ limit: 50 }).then((data) => {
+      if (!alive) return
+
+      setActivities(data)
+      setLoading(false)
+    })
+
+    return () => {
+      alive = false
+    }
+  }, [lastSyncAt])
+
+  if (loading) {
     return (
       <div className="rounded-xl border border-pink-100 bg-white p-6 text-center text-sm text-gray-400">
         Loading activity...
@@ -87,39 +88,35 @@ export default function Activity() {
           </p>
 
           <p className="mt-1 text-xs text-gray-400">
-            Actions such as sales and worker changes will appear here.
+            Sales and other shop activity will appear here.
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {activities.map((activity) => {
-            const detail = getDetails(activity)
+          {activities.map((activity) => (
+            <div
+              key={activity.id}
+              className="rounded-xl border border-pink-100 bg-white p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium leading-5 text-gray-900">
+                    {describeActivity(activity)}
+                  </p>
 
-            return (
-              <div
-                key={activity.id}
-                className="rounded-xl border border-pink-100 bg-white p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {formatActivity(activity.action)}
+                  {activity.synced === 0 && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Waiting to sync
                     </p>
-
-                    {detail && (
-                      <p className="mt-1 text-xs text-gray-500">
-                        {detail}
-                      </p>
-                    )}
-                  </div>
-
-                  <span className="shrink-0 text-[11px] text-gray-400">
-                    {formatTime(activity.timestamp)}
-                  </span>
+                  )}
                 </div>
+
+                <span className="shrink-0 text-[11px] text-gray-400">
+                  {formatTime(activity.timestamp)}
+                </span>
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>

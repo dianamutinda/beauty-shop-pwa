@@ -22,6 +22,7 @@ export function categoryToRow(c) {
     icon: c.icon,
   }
 }
+
 export function movementToRow(m) {
   return {
     id: m.id,
@@ -33,8 +34,15 @@ export function movementToRow(m) {
     note: m.note ?? null,
   }
 }
+
 export function rowToCategory(r) {
-  return { id: r.id, shopId: r.shop_id, name: r.name, icon: r.icon ?? null, synced: 1 }
+  return {
+    id: r.id,
+    shopId: r.shop_id,
+    name: r.name,
+    icon: r.icon ?? null,
+    synced: 1,
+  }
 }
 
 export function rowToProduct(r) {
@@ -45,7 +53,8 @@ export function rowToProduct(r) {
     name: r.name,
     categoryId: r.category_id,
     sellingPrice: Number(r.selling_price),
-    buyingPrice: r.buying_price === null ? null : Number(r.buying_price),
+    // Workers read from a view that has no buying_price column.
+    buyingPrice: r.buying_price == null ? null : Number(r.buying_price),
     description: r.description ?? '',
     attributes: r.attributes ?? {},
     stock: Number(r.stock ?? 0),

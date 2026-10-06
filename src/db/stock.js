@@ -1,4 +1,3 @@
-
 import { db } from './index'
 import { getShopId } from './shop'
 import { addActivity } from './activity'
@@ -53,6 +52,7 @@ export async function recordStockMovement(
     'rw',
     db.products,
     db.stockMovements,
+    db.activity,
     db.syncQueue,
     async () => {
       const product = await db.products.get(productId)
@@ -88,6 +88,15 @@ export async function recordStockMovement(
       // non-sale stock movements here.
       if (type !== 'sale') {
         await enqueue('stockMovements', movementId)
+
+        // Sales are logged by recordSale, so only log the rest.
+        await addActivity(shopId, `stock.${type}`, {
+          productId,
+          productName: product.name,
+          quantity: change,
+          newStock,
+          note,
+        })
       }
 
       await db.products.update(productId, {
@@ -126,9 +135,11 @@ export async function applyStockCount(counts) {
     'rw',
     db.products,
     db.stockMovements,
+    db.activity,
     db.syncQueue,
     async () => {
       let adjusted = 0
+      const changes = []
 
       for (const { productId, counted } of counts) {
         const product = await db.products.get(productId)
@@ -160,7 +171,22 @@ export async function applyStockCount(counts) {
           synced: 0,
         })
 
+        changes.push({
+          productId,
+          name: product.name,
+          difference,
+        })
+
         adjusted++
+      }
+
+      // One activity entry for the whole count, only if
+      // something actually changed.
+      if (adjusted > 0) {
+        await addActivity(shopId, 'stock.counted', {
+          adjusted,
+          changes,
+        })
       }
 
       return adjusted
@@ -304,6 +330,7 @@ export async function recordSale(
         saleId,
         total,
         itemCount: items.length,
+        paymentMethod,
       })
 
       return {

@@ -21,6 +21,7 @@ import { getShop } from '../db/shop'
 import { hasPinSet } from '../auth/pin'
 import { useLockTimer } from '../auth/useLockTimer'
 import { LockScreen } from '../auth/LockScreen'
+import SyncBadge from '../components/SyncBadge'
 
 const WORKER_NAV = [
   {
@@ -113,45 +114,46 @@ export default function Layout() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-pink-50">
 
-      
-{/* Header */}
-<header className="border-b border-pink-100 bg-white">
-  <div className="flex items-center justify-between px-4 py-3.5">
-    <div className="flex min-w-0 items-center gap-3">
-      {/* Shop mark */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pink-100">
-        <span className="text-sm font-semibold text-pink-600">
-          {shop?.name?.charAt(0)?.toUpperCase() || 'B'}
-        </span>
-      </div>
+      {/* Header */}
+      <header className="sticky top-0 z-30 border-b border-pink-100 bg-white">
+        <div className="flex items-center gap-3 px-4 py-3.5">
 
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <h1 className="truncate text-sm font-semibold text-gray-900">
-            {shop?.name ?? 'Beauty Shop'}
-          </h1>
+          {/* Shop identity */}
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pink-100">
+              <span className="text-sm font-semibold text-pink-600">
+                {shop?.name?.charAt(0)?.toUpperCase() || 'B'}
+              </span>
+            </div>
 
-          <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-sm font-semibold text-gray-900">
+                  {shop?.name ?? 'Beauty Shop'}
+                </h1>
+
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" />
+              </div>
+
+              <p className="mt-0.5 text-[11px] text-gray-400">
+                {role === 'owner' ? 'Owner' : 'Worker'}
+              </p>
+            </div>
+          </div>
+
+          {/* Sync status */}
+          <SyncBadge />
+
+          {/* Account shortcut */}
+          <NavLink
+            to="/account"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-pink-100 bg-pink-50 text-pink-600 transition active:scale-95"
+            aria-label="Account"
+          >
+            <UserRound size={17} strokeWidth={1.8} />
+          </NavLink>
         </div>
-
-        <p className="mt-0.5 text-[11px] text-gray-400">
-          {role === 'owner' ? 'Owner' : 'Worker'}
-        </p>
-      </div>
-    </div>
-
-    {/* Account shortcut */}
-    <NavLink
-      to="/account"
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-pink-100 bg-pink-50 text-pink-600 transition active:scale-95"
-      aria-label="Account"
-    >
-      <UserRound size={17} strokeWidth={1.8} />
-    </NavLink>
-  </div>
-</header>
-
-
+      </header>
 
       {/* Page */}
       <main
@@ -194,13 +196,11 @@ export default function Layout() {
                       />
 
                       <span
-                        className={
-                          `text-[10px] ${
-                            isActive
-                              ? 'font-medium text-pink-600'
-                              : 'text-gray-400'
-                          }`
-                        }
+                        className={`text-[10px] ${
+                          isActive
+                            ? 'font-medium text-pink-600'
+                            : 'text-gray-400'
+                        }`}
                       >
                         {item.label}
                       </span>
