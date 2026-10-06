@@ -1,3 +1,4 @@
+
 import { db } from './index'
 import { getShopId } from './shop'
 import { enqueue } from './syncQueue'
@@ -44,9 +45,14 @@ export async function logActivity(
 ) {
   const shopId = await getShopId()
 
-  await db.transaction('rw', db.activity, db.syncQueue, async () => {
-    await addActivity(shopId, action, details, userId)
-  })
+  await db.transaction(
+    'rw',
+    db.activity,
+    db.syncQueue,
+    async () => {
+      await addActivity(shopId, action, details, userId)
+    }
+  )
 }
 
 // Newest first, each row labelled with the member's name.
@@ -87,7 +93,10 @@ export function describeActivity(row) {
     case 'sale.recorded': {
       const count = d.itemCount ?? 0
       const items = `${count} item${count === 1 ? '' : 's'}`
-      const pay = d.paymentMethod ? ` (${d.paymentMethod})` : ''
+      const pay = d.paymentMethod
+        ? ` (${d.paymentMethod})`
+        : ''
+
       return `${who} recorded a sale of ${money(d.total)}, ${items}${pay}`
     }
 
@@ -99,16 +108,51 @@ export function describeActivity(row) {
 
     case 'stock.adjustment': {
       const sign = d.quantity > 0 ? '+' : ''
+
       return `${who} adjusted ${d.productName} by ${sign}${d.quantity} (now ${d.newStock})`
     }
 
     case 'stock.counted':
       return `${who} counted stock and adjusted ${d.adjusted} product${d.adjusted === 1 ? '' : 's'}`
 
+    case 'product.added': {
+      const stock =
+        d.openingStock > 0
+          ? `, opening stock ${d.openingStock}`
+          : ''
+
+      return `${who} added ${d.productName} (${d.sku}) at ${money(d.sellingPrice)}${stock}`
+    }
+
+    case 'product.updated': {
+      const f = d.fields ?? []
+
+      if (f.length === 1 && f[0] === 'sellingPrice') {
+        return `${who} changed the price of ${d.productName} from ${money(d.sellingPrice.from)} to ${money(d.sellingPrice.to)}`
+      }
+
+      if (f.length === 1 && f[0] === 'name') {
+        return `${who} renamed ${d.oldName} to ${d.productName}`
+      }
+
+      return `${who} edited ${d.productName} (${f.join(', ')})`
+    }
+
+    case 'category.added':
+      return `${who} added the category ${d.categoryName}`
+
+    case 'category.renamed':
+      return `${who} renamed the category ${d.oldName} to ${d.categoryName}`
+
+    case 'category.deleted':
+      return `${who} deleted the category ${d.categoryName}`
+
     default:
       return `${who}: ${row.action}`
   }
 }
+
 export function getActivityUser() {
   return currentUserId
 }
+

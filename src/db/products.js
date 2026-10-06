@@ -3,6 +3,7 @@ import { db } from './index'
 import { getShopId } from './shop'
 import { getLowStockDefault } from './settings'
 import { enqueue } from './syncQueue'
+import { addActivity } from './activity'
 
 async function assertCategoryNameFree(name, exceptId = null) {
   const existing = await listCategories()
@@ -37,14 +38,19 @@ export async function addCategory({ name, icon = null }) {
     synced: 0,
   }
 
-  // Save the category and its sync queue entry atomically.
+  // Save the category, activity, and sync queue entry atomically.
   await db.transaction(
     'rw',
     db.categories,
+    db.activity,
     db.syncQueue,
     async () => {
       await db.categories.add(category)
       await enqueue('categories', category.id)
+
+      await addActivity(shopId, 'category.added', {
+        categoryName: category.name,
+      })
     }
   )
 
@@ -88,10 +94,11 @@ export async function renameCategory(id, name) {
 
   await assertCategoryNameFree(clean, id)
 
-  // Save the rename and its sync queue entry atomically.
+  // Save the rename, activity, and sync queue entry atomically.
   await db.transaction(
     'rw',
     db.categories,
+    db.activity,
     db.syncQueue,
     async () => {
       await db.categories.update(id, {
@@ -100,6 +107,13 @@ export async function renameCategory(id, name) {
       })
 
       await enqueue('categories', id)
+
+      if (category.name !== clean) {
+        await addActivity(shopId, 'category.renamed', {
+          oldName: category.name,
+          categoryName: clean,
+        })
+      }
     }
   )
 }
@@ -125,14 +139,19 @@ export async function deleteCategory(id) {
     )
   }
 
-  // Delete the category and queue the delete operation atomically.
+  // Delete the category, activity, and sync queue entry atomically.
   await db.transaction(
     'rw',
     db.categories,
+    db.activity,
     db.syncQueue,
     async () => {
       await db.categories.delete(id)
       await enqueue('categories', id, 'delete')
+
+      await addActivity(shopId, 'category.deleted', {
+        categoryName: category.name,
+      })
     }
   )
 }
@@ -196,6 +215,7 @@ export async function addProduct({
     'rw',
     db.products,
     db.stockMovements,
+    db.activity,
     db.syncQueue,
     async () => {
       // Save the product locally first.
@@ -221,6 +241,13 @@ export async function addProduct({
         // Queue the stock movement after the product.
         await enqueue('stockMovements', movementId)
       }
+
+      await addActivity(shopId, 'product.added', {
+        productName: product.name,
+        sku: product.sku,
+        sellingPrice: product.sellingPrice,
+        openingStock: product.stock,
+      })
     }
   )
 
@@ -235,6 +262,7 @@ const EDITABLE_FIELDS = [
   'buyingPrice',
   'description',
   'attributes',
+  'lowStockLevel',
 ]
 
 export async function getProduct(id) {
@@ -293,23 +321,65 @@ export async function updateProduct(id, changes) {
     )
   }
 
-  // Save the product update and queue entry atomically.
+  const shopId = await getShopId()
+
   await db.transaction(
     'rw',
     db.products,
+    db.activity,
     db.syncQueue,
     async () => {
-      const count = await db.products.update(id, {
+      const before = await db.products.get(id)
+
+      if (!before) {
+        throw new Error(`Product ${id} not found`)
+      }
+
+      await db.products.update(id, {
         ...updates,
         lastUpdated: new Date().toISOString(),
         synced: 0,
       })
 
-      if (count === 0) {
-        throw new Error(`Product ${id} not found`)
-      }
-
       await enqueue('products', id)
+
+      // Work out what actually changed.
+      const norm = (v) => JSON.stringify(v ?? null)
+
+      const fields = Object.keys(updates).filter(
+        (f) => norm(before[f]) !== norm(updates[f])
+      )
+
+      if (fields.length > 0) {
+        const details = {
+          productName: updates.name ?? before.name,
+          fields,
+        }
+
+        if (fields.includes('name')) {
+          details.oldName = before.name
+        }
+
+        if (fields.includes('sellingPrice')) {
+          details.sellingPrice = {
+            from: before.sellingPrice,
+            to: updates.sellingPrice,
+          }
+        }
+
+        if (fields.includes('buyingPrice')) {
+          details.buyingPrice = {
+            from: before.buyingPrice ?? null,
+            to: updates.buyingPrice,
+          }
+        }
+
+        await addActivity(
+          shopId,
+          'product.updated',
+          details
+        )
+      }
     }
   )
 }

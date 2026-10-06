@@ -260,9 +260,8 @@ export default function ProductForm({
           <Field label="Selling Price (KSh)" required>
             <input
               className={inputClass}
-              type="number"
-              inputMode="numeric"
-              min="0"
+              type="text"
+              inputMode="decimal"
               value={values.sellingPrice}
               onChange={set('sellingPrice')}
               placeholder="350"
@@ -312,9 +311,8 @@ export default function ProductForm({
         >
           <input
             className={inputClass}
-            type="number"
-            inputMode="numeric"
-            min="0"
+            type="text"
+            inputMode="decimal"
             value={values.buyingPrice}
             onChange={set('buyingPrice')}
             placeholder="150"
