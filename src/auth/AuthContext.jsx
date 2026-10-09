@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   async function syncIdentity(authUser) {
-    await ensureShopForUser(authUser.id)
+    
 
     const { data: fresh, error } = await supabase
       .from('profiles')
@@ -35,8 +35,12 @@ export function AuthProvider({ children }) {
       setActivityUser(null)
       await clearIdentity()
       await supabase.auth.signOut({ scope: 'local' })
-      return
+      throw new Error(
+        'This account has been deactivated. Contact the shop owner.'
+      )
     }
+
+    await ensureShopForUser(authUser.id)
 
     // Check which account currently owns the local Dexie data.
     const owner = await getDataOwner()
