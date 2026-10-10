@@ -7,40 +7,27 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
 Deno.serve(async (req) => {
   // Browser preflight request
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: corsHeaders,
-    })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      {
-        status: 405,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    return json({ error: 'Method not allowed' }, 405)
   }
 
   const authHeader = req.headers.get('Authorization')
 
   if (!authHeader) {
-    return new Response(
-      JSON.stringify({ error: 'Not authorized' }),
-      {
-        status: 401,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    return json({ error: 'Not authorized' }, 401)
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -48,40 +35,18 @@ Deno.serve(async (req) => {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
 
   if (!supabaseUrl || !serviceRoleKey || !anonKey) {
-    return new Response(
-      JSON.stringify({
-        error: 'Server configuration is incomplete',
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    return json({ error: 'Server configuration is incomplete' }, 500)
   }
 
   // Server-side client using the service role.
   // This key must never be exposed to the browser.
-  const supabaseAdmin = createClient(
-    supabaseUrl,
-    serviceRoleKey
-  )
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
 
   // Client using the caller's access token.
   // This verifies which authenticated user called the function.
-  const callerClient = createClient(
-    supabaseUrl,
-    anonKey,
-    {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    }
-  )
+  const callerClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  })
 
   const {
     data: { user },
@@ -89,45 +54,25 @@ Deno.serve(async (req) => {
   } = await callerClient.auth.getUser()
 
   if (userError || !user) {
-    return new Response(
-      JSON.stringify({ error: 'Not authorized' }),
-      {
-        status: 401,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    return json({ error: 'Not authorized' }, 401)
   }
 
   // Get the caller's profile using the server client.
-  const {
-    data: callerProfile,
-    error: profileLookupError,
-  } = await supabaseAdmin
-    .from('profiles')
-    .select('role, shop_id')
-    .eq('id', user.id)
-    .single()
+  // The admin client skips RLS, so role and active are checked here.
+  const { data: callerProfile, error: profileLookupError } =
+    await supabaseAdmin
+      .from('profiles')
+      .select('role, shop_id, active')
+      .eq('id', user.id)
+      .single()
 
   if (
     profileLookupError ||
     !callerProfile ||
-    callerProfile.role !== 'owner'
+    callerProfile.role !== 'owner' ||
+    callerProfile.active === false
   ) {
-    return new Response(
-      JSON.stringify({
-        error: 'Only owners can add workers',
-      }),
-      {
-        status: 403,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    return json({ error: 'Only owners can add workers' }, 403)
   }
 
   let body
@@ -135,87 +80,60 @@ Deno.serve(async (req) => {
   try {
     body = await req.json()
   } catch {
-    return new Response(
-      JSON.stringify({
-        error: 'Invalid request body',
-      }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    return json({ error: 'Invalid request body' }, 400)
   }
 
   const name = body?.name?.trim()
   const phone = body?.phone?.trim()
-  const email = body?.email?.trim()
+  const email = body?.email?.trim().toLowerCase()
   const password = body?.password
 
   if (!name || !email || !password) {
-    return new Response(
-      JSON.stringify({
-        error: 'Name, email, and password are required',
-      }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    return json({ error: 'Name, email, and password are required' }, 400)
   }
 
   if (password.length < 6) {
-    return new Response(
-      JSON.stringify({
-        error: 'Password must be at least 6 characters',
-      }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
+    return json({ error: 'Password must be at least 6 characters' }, 400)
+  }
+
+  // Reject a duplicate phone before creating any auth account.
+  if (phone) {
+    const { data: existingPhone } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('shop_id', callerProfile.shop_id)
+      .eq('phone', phone)
+      .maybeSingle()
+
+    if (existingPhone) {
+      return json(
+        {
+          error:
+            'A worker with this phone number already exists in your shop.',
         },
-      }
-    )
+        409
+      )
+    }
   }
 
   // Create the worker's real Supabase Auth account.
-  const {
-    data: newUser,
-    error: createError,
-  } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  })
+  const { data: newUser, error: createError } =
+    await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
 
   if (createError || !newUser.user) {
-    return new Response(
-      JSON.stringify({
-        error:
-          createError?.message ||
-          'Could not create worker account',
-      }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+    return json(
+      { error: createError?.message || 'Could not create worker account' },
+      400
     )
   }
 
   // Create the worker's application profile.
   // The worker gets the same shop as the owner who created them.
-  const {
-    error: profileError,
-  } = await supabaseAdmin
+  const { error: profileError } = await supabaseAdmin
     .from('profiles')
     .insert({
       id: newUser.user.id,
@@ -229,34 +147,9 @@ Deno.serve(async (req) => {
   // If the profile cannot be created, remove the Auth account
   // so we don't leave an incomplete worker behind.
   if (profileError) {
-    await supabaseAdmin.auth.admin.deleteUser(
-      newUser.user.id
-    )
-
-    return new Response(
-      JSON.stringify({
-        error: profileError.message,
-      }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+    return json({ error: profileError.message }, 400)
   }
 
-  return new Response(
-    JSON.stringify({
-      id: newUser.user.id,
-    }),
-    {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
-    }
-  )
+  return json({ id: newUser.user.id }, 200)
 })

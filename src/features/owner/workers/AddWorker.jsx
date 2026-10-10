@@ -49,13 +49,20 @@ export default function AddWorker() {
           body: {
             name: form.name.trim(),
             phone: form.phone.trim(),
-            email: form.email.trim(),
+            email: form.email.trim().toLowerCase(),
             password: form.password,
           },
         })
 
-      if (functionError) {
-        throw functionError
+            if (functionError) {
+        let message = 'Could not add worker. Try again.'
+        try {
+          const body = await functionError.context.json()
+          if (body?.error) message = body.error
+        } catch {
+          // No readable body (for example a network failure): keep the generic message.
+        }
+        throw new Error(message)
       }
 
       if (data?.error) {
