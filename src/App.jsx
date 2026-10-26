@@ -1,4 +1,3 @@
-
 import {
   HashRouter,
   Routes,
@@ -33,6 +32,7 @@ import StockUpdate from './features/owner/StockUpdate'
 import Count from './features/owner/Count'
 import Dashboard from './features/owner/Dashboard'
 import Sales from './features/owner/Sales'
+import SalesSummary from './features/owner/SalesSummary' // <--- Imported SalesSummary
 import More from './features/owner/More'
 import Settings from './features/owner/Settings'
 import Activity from './features/owner/Activity'
@@ -71,7 +71,7 @@ function OwnerOnly() {
   return role === 'owner'
     ? <Outlet />
     : <Navigate to="/" replace />
-  }
+}
 
 
 export default function App() {
@@ -172,6 +172,23 @@ export default function App() {
                   <Route
                     path="sales"
                     element={<Sales />}
+                  />
+
+                  {/* Owner Sales Summary Route */}
+                  <Route
+                    path="sales-summary"
+                    element={<SalesSummary />}
+                  />
+
+                  {/* Alias to keep owner end-of-day working */}
+                  <Route
+                    path="end-of-day"
+                    element={
+                      <Navigate
+                        to="/owner/sales-summary"
+                        replace
+                      />
+                    }
                   />
 
                   <Route

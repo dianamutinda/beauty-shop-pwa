@@ -77,9 +77,7 @@ function SaleCard({ sale }) {
             </span>
 
             <span>
-              {formatKsh(
-                item.quantity * (item.unitPrice ?? 0)
-              )}
+              {formatKsh(item.quantity * (item.unitPrice ?? 0))}
             </span>
           </div>
         ))}

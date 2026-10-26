@@ -217,16 +217,12 @@ export async function pullShopData() {
 
   const shopId = await getShopId()
 
-  // Never overwrite records that still have a pending
-  // local change in the sync queue.
   const pendingIds = new Set(
     (await db.syncQueue.toArray()).map(
       (q) => q.recordId
     )
   )
 
-  // A product whose latest sale, void or stock change hasn't
-  // reached the server yet keeps its local stock.
   const unsyncedMovements = await db.stockMovements
     .filter((m) => m.synced === 0)
     .toArray()
@@ -237,8 +233,6 @@ export async function pullShopData() {
     )
   )
 
-  // Only products that actually exist locally can be protected
-  // by an unsynced movement.
   const localProductIds = new Set(
     (await db.products.toCollection().primaryKeys())
   )
@@ -262,8 +256,18 @@ export async function pullShopData() {
 
   if (pErr) throw pErr
 
-  // Only the owner pulls the shop's activity log and member
-  // names. Workers keep the rows they wrote themselves.
+  // 1. Pull recent stock movements from Supabase (e.g., past 30 days)
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+  const { data: movements, error: mMoveErr } = await supabase
+    .from('stock_movements')
+    .select('*')
+    .eq('shop_id', shopId)
+    .gte('timestamp', thirtyDaysAgo.toISOString())
+
+  if (mMoveErr) throw mMoveErr
+
   let acts = []
   let members = []
 
@@ -289,14 +293,13 @@ export async function pullShopData() {
     members = mems
   }
 
-  // Category ids the server has right now, used to detect
-  // categories that were deleted on another device.
   const serverCatIds = new Set(cats.map((r) => r.id))
 
   await db.transaction(
     'rw',
     db.categories,
     db.products,
+    db.stockMovements, // <-- Include stockMovements in the transaction
     db.activity,
     db.settings,
     async () => {
@@ -337,7 +340,28 @@ export async function pullShopData() {
         }
       }
 
-      // 4. Add activity from other devices (owner only)
+      // 4. Add stock movements from other devices so dashboards calculate totals correctly
+      for (const r of movements) {
+        if (!pendingIds.has(r.id)) {
+          // Map server row format to local Dexie format if you use a mapper, or direct put
+          await db.stockMovements.put({
+            id: r.id,
+            shopId: r.shop_id,
+            productId: r.product_id,
+            saleId: r.sale_id,
+            type: r.type,
+            quantity: r.quantity,
+            unitPrice: r.unit_price,
+            listPrice: r.list_price,
+            paymentMethod: r.payment_method,
+            note: r.note,
+            timestamp: r.timestamp,
+            synced: 1,
+          })
+        }
+      }
+
+      // 5. Add activity from other devices (owner only)
       for (const r of acts) {
         if (!pendingIds.has(r.id)) {
           await db.activity.put({
@@ -352,8 +376,7 @@ export async function pullShopData() {
         }
       }
 
-      // 5. Remember who the shop's members are (owner only), so
-      // the activity screen can show names offline
+      // 6. Remember who the shop's members are (owner only)
       if (members.length > 0) {
         await db.settings.put({
           key: 'shopMembers',

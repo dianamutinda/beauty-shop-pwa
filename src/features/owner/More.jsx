@@ -37,9 +37,9 @@ const ITEMS = [
     icon: Boxes,
   },
   {
-    to: '/end-of-day',
-    label: 'End of Day',
-    description: 'Review the day and close out sales',
+    to: '/owner/sales-summary',
+    label: 'Sales Summary',
+    description: 'Review sales totals, payment breakdowns, and shift reports',
     icon: ClipboardCheck,
   },
 ]
