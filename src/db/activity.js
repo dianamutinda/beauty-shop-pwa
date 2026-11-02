@@ -1,4 +1,3 @@
-
 import { db } from './index'
 import { getShopId } from './shop'
 import { enqueue } from './syncQueue'
@@ -45,14 +44,9 @@ export async function logActivity(
 ) {
   const shopId = await getShopId()
 
-  await db.transaction(
-    'rw',
-    db.activity,
-    db.syncQueue,
-    async () => {
-      await addActivity(shopId, action, details, userId)
-    }
-  )
+  await db.transaction('rw', db.activity, db.syncQueue, async () => {
+    await addActivity(shopId, action, details, userId)
+  })
 }
 
 // Newest first, each row labelled with the member's name.
@@ -61,13 +55,9 @@ export async function logActivity(
 export async function listActivity({ limit = 50 } = {}) {
   const shopId = await getShopId()
 
-  const rows = await db.activity
-    .where('shopId')
-    .equals(shopId)
-    .toArray()
+  const rows = await db.activity.where('shopId').equals(shopId).toArray()
 
-  const members =
-    (await db.settings.get('shopMembers'))?.value ?? []
+  const members = (await db.settings.get('shopMembers'))?.value ?? []
 
   const nameById = new Map(
     members.map((m) => [m.id, m.display_name || m.role])
@@ -82,8 +72,7 @@ export async function listActivity({ limit = 50 } = {}) {
     }))
 }
 
-const money = (n) =>
-  `KSh ${Number(n ?? 0).toLocaleString('en-KE')}`
+const money = (n) => `KSh ${Number(n ?? 0).toLocaleString('en-KE')}`
 
 export function describeActivity(row) {
   const who = row.userName ?? 'Someone'
@@ -93,9 +82,7 @@ export function describeActivity(row) {
     case 'sale.recorded': {
       const count = d.itemCount ?? 0
       const items = `${count} item${count === 1 ? '' : 's'}`
-      const pay = d.paymentMethod
-        ? ` (${d.paymentMethod})`
-        : ''
+      const pay = d.paymentMethod ? ` (${d.paymentMethod})` : ''
 
       return `${who} recorded a sale of ${money(d.total)}, ${items}${pay}`
     }
@@ -116,10 +103,7 @@ export function describeActivity(row) {
       return `${who} counted stock and adjusted ${d.adjusted} product${d.adjusted === 1 ? '' : 's'}`
 
     case 'product.added': {
-      const stock =
-        d.openingStock > 0
-          ? `, opening stock ${d.openingStock}`
-          : ''
+      const stock = d.openingStock > 0 ? `, opening stock ${d.openingStock}` : ''
 
       return `${who} added ${d.productName} (${d.sku}) at ${money(d.sellingPrice)}${stock}`
     }
@@ -147,6 +131,9 @@ export function describeActivity(row) {
     case 'category.deleted':
       return `${who} deleted the category ${d.categoryName}`
 
+    case 'auth.signed_in':
+      return `${who} signed in`
+
     default:
       return `${who}: ${row.action}`
   }
@@ -155,4 +142,3 @@ export function describeActivity(row) {
 export function getActivityUser() {
   return currentUserId
 }
-

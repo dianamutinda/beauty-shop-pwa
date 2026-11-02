@@ -11,6 +11,7 @@ import {
   Calendar,
   ChevronRight,
   TrendingUp,
+  Wallet,
 } from 'lucide-react'
 import { getDashboardStats } from '../../db/dashboard'
 import { db } from '../../db'
@@ -280,11 +281,10 @@ export default function Dashboard() {
           />
 
           <StatCard
-            label="Number of Sales"
-            value={stats.numberOfSales}
-            growthValue={stats.salesCountGrowth}
-            icon={TrendingUp}
-          />
+  label="Stock Value"
+  value={formatKsh(stats.stockValue)}
+  icon={Wallet}
+/>
 
           <StatCard
             label="Units Sold"

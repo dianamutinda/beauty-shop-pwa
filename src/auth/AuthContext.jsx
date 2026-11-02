@@ -4,7 +4,7 @@ import { ensureShopForUser } from '../db/shop'
 import { saveIdentity, loadIdentity, clearIdentity } from '../db/identity'
 import { startSyncTriggers } from '../db/syncTriggers'
 import { syncPendingChanges } from '../db/sync'
-import { setActivityUser } from '../db/activity'
+import { setActivityUser, logActivity } from '../db/activity'
 import {
   getDataOwner,
   setDataOwner,
@@ -21,8 +21,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   async function syncIdentity(authUser) {
-    
-
     const { data: fresh, error } = await supabase
       .from('profiles')
       .select('*')
@@ -205,6 +203,16 @@ export function AuthProvider({ children }) {
       setActivityUser(null)
       await supabase.auth.signOut({ scope: 'local' })
       throw friendlyError(err)
+    }
+
+    // Only reached when syncIdentity succeeded: the account is active,
+    // there is no account-switch block, and setActivityUser has run,
+    // so the row carries the right user id. A logging failure must
+    // never stop someone from getting in.
+    try {
+      await logActivity('auth.signed_in', { method: 'password' })
+    } catch (e) {
+      console.warn('Could not log sign-in', e)
     }
   }
 
