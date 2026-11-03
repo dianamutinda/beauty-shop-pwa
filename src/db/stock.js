@@ -584,3 +584,37 @@ export async function listTodaysSales() {
     to: endOfDay.toISOString(),
   })
 }
+
+/**
+ * Temporary one-off cleanup.
+ *
+ * Deletes server-pulled copies of sale/void movements that this
+ * device already recorded locally. Remove after running once.
+ */
+export async function removeDuplicateSaleMovements() {
+  const rows = await db.stockMovements.filter((m) => m.saleId).toArray()
+
+  // Group rows that describe the same movement.
+  const groups = new Map()
+  for (const m of rows) {
+    const key = `${m.saleId}|${m.productId}|${m.type}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(m)
+  }
+
+  const toDelete = []
+  for (const group of groups.values()) {
+    if (group.length < 2) continue
+
+    // Local rows use toISOString() ("...Z"). Server copies come back
+    // as "...+00:00". Keep the local row and delete the rest.
+    const keep = group.find((m) => m.timestamp.endsWith('Z')) ?? group[0]
+
+    for (const m of group) {
+      if (m.id !== keep.id) toDelete.push(m.id)
+    }
+  }
+
+  await db.stockMovements.bulkDelete(toDelete)
+  return toDelete.length
+}

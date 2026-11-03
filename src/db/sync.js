@@ -256,7 +256,7 @@ export async function pullShopData() {
 
   if (pErr) throw pErr
 
-  // 1. Pull recent stock movements from Supabase (e.g., past 30 days)
+  // Pull recent stock movements from Supabase (past 30 days)
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
@@ -299,7 +299,7 @@ export async function pullShopData() {
     'rw',
     db.categories,
     db.products,
-    db.stockMovements, // <-- Include stockMovements in the transaction
+    db.stockMovements,
     db.activity,
     db.settings,
     async () => {
@@ -340,10 +340,26 @@ export async function pullShopData() {
         }
       }
 
-      // 4. Add stock movements from other devices so dashboards calculate totals correctly
+      // 4. Add stock movements from other devices so dashboards calculate totals correctly.
+      // Sale/void rows we already have locally, identified by what they are
+      // (sale + product + type). The server generates its own ids for the same
+      // movements, so matching on id alone creates duplicates.
+      const localKeys = new Set(
+        (await db.stockMovements.filter((m) => m.saleId).toArray()).map(
+          (m) => `${m.saleId}|${m.productId}|${m.type}`
+        )
+      )
+
       for (const r of movements) {
+        // Skip server copies of sales/voids this device already recorded.
+        if (
+          r.sale_id &&
+          localKeys.has(`${r.sale_id}|${r.product_id}|${r.type}`)
+        ) {
+          continue
+        }
+
         if (!pendingIds.has(r.id)) {
-          // Map server row format to local Dexie format if you use a mapper, or direct put
           await db.stockMovements.put({
             id: r.id,
             shopId: r.shop_id,
