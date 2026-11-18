@@ -1,3 +1,4 @@
+
 import {
   HashRouter,
   Routes,
@@ -8,6 +9,7 @@ import {
 
 import { AuthProvider, useRole } from './auth/AuthContext'
 import { BasketProvider } from './features/lookup/BasketContext'
+import { ThemeProvider } from './context/ThemeContext'
 
 import Layout from './components/Layout'
 import Login from './auth/Login'
@@ -32,7 +34,7 @@ import StockUpdate from './features/owner/StockUpdate'
 import Count from './features/owner/Count'
 import Dashboard from './features/owner/Dashboard'
 import Sales from './features/owner/Sales'
-import SalesSummary from './features/owner/SalesSummary' // <--- Imported SalesSummary
+import SalesSummary from './features/owner/SalesSummary'
 import More from './features/owner/More'
 import Settings from './features/owner/Settings'
 import Activity from './features/owner/Activity'
@@ -76,206 +78,199 @@ function OwnerOnly() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <HashRouter>
-        <BasketProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <HashRouter>
+          <BasketProvider>
 
-          <Routes>
+            <Routes>
 
-            {/* Public */}
-            <Route
-              path="/login"
-              element={<Login />}
-            />
-
-            {/* Super Admin - UI testing for now */}
-            <Route element={<SuperAdminLayout />}>
+              {/* Public */}
               <Route
-                path="/super-admin"
-                element={<SuperAdminDashboard />}
+                path="/login"
+                element={<Login />}
               />
 
-              <Route
-                path="/super-admin/shops"
-                element={<SuperAdminShops />}
-              />
-            </Route>
-
-            {/* Authenticated Shop App */}
-            <Route element={<RequireAuth />}>
-              <Route element={<Layout />}>
-
-                {/* Landing */}
+              {/* Super Admin */}
+              <Route element={<SuperAdminLayout />}>
                 <Route
-                  index
-                  element={<Landing />}
-                />
-
-                {/* PIN setup */}
-                <Route
-                  path="set-pin"
-                  element={<SetPin />}
-                />
-
-                {/* Worker / Shop Operations */}
-                <Route
-                  path="search"
-                  element={<Search />}
+                  path="/super-admin"
+                  element={<SuperAdminDashboard />}
                 />
 
                 <Route
-                  path="product/:id"
-                  element={<ProductDetails />}
+                  path="/super-admin/shops"
+                  element={<SuperAdminShops />}
                 />
+              </Route>
 
-                <Route
-                  path="sale"
-                  element={<SaleFlow />}
-                />
+              {/* Authenticated Shop App */}
+              <Route element={<RequireAuth />}>
+                <Route element={<Layout />}>
 
-                <Route
-                  path="sales"
-                  element={<SalesToday />}
-                />
-
-                <Route
-                  path="end-of-day"
-                  element={<EndOfDay />}
-                />
-
-                <Route
-                  path="account"
-                  element={<Account />}
-                />
-
-                {/* Keep old URL working */}
-                <Route
-                  path="sales-today"
-                  element={
-                    <Navigate
-                      to="/sales"
-                      replace
-                    />
-                  }
-                />
-
-                {/* Owner */}
-                <Route
-                  path="owner"
-                  element={<OwnerOnly />}
-                >
+                  {/* Landing */}
                   <Route
                     index
-                    element={<Dashboard />}
+                    element={<Landing />}
+                  />
+
+                  {/* PIN setup */}
+                  <Route
+                    path="set-pin"
+                    element={<SetPin />}
+                  />
+
+                  {/* Worker / Shop Operations */}
+                  <Route
+                    path="search"
+                    element={<Search />}
+                  />
+
+                  <Route
+                    path="product/:id"
+                    element={<ProductDetails />}
+                  />
+
+                  <Route
+                    path="sale"
+                    element={<SaleFlow />}
                   />
 
                   <Route
                     path="sales"
-                    element={<Sales />}
+                    element={<SalesToday />}
                   />
 
-                  {/* Owner Sales Summary Route */}
-                  <Route
-                    path="sales-summary"
-                    element={<SalesSummary />}
-                  />
-
-                  {/* Alias to keep owner end-of-day working */}
                   <Route
                     path="end-of-day"
+                    element={<EndOfDay />}
+                  />
+
+                  <Route
+                    path="account"
+                    element={<Account />}
+                  />
+
+                  {/* Keep old URL working */}
+                  <Route
+                    path="sales-today"
                     element={
-                      <Navigate
-                        to="/owner/sales-summary"
-                        replace
-                      />
+                      <Navigate to="/sales" replace />
                     }
                   />
 
+                  {/* Owner */}
                   <Route
-                    path="products"
-                    element={<Products />}
-                  />
-
-                  <Route
-                    path="products/new"
-                    element={<AddProduct />}
-                  />
-
-                  <Route
-                    path="products/:id/edit"
-                    element={<EditProduct />}
-                  />
-
-                  <Route
-                    path="stock"
-                    element={<Stock />}
-                  />
-
-                  <Route
-                    path="stock/:id"
-                    element={<StockUpdate />}
-                  />
-
-                  <Route
-                    path="count"
-                    element={<Count />}
-                  />
-
-                  <Route
-                    path="categories"
-                    element={<Categories />}
-                  />
-
-                  <Route
-                    path="more"
-                    element={<More />}
-                  />
-
-                  {/* Workers */}
-                  <Route
-                    path="workers"
-                    element={<Workers />}
-                  />
-
-                  <Route
-                    path="workers/:id"
-                    element={<WorkerProfile />}
-                  />
-
-                  <Route
-                    path="workers/new"
-                    element={<AddWorker />}
-                  />
-
-                  <Route
-                    path="settings"
-                    element={<Settings />}
-                  />
-
-                  <Route
-                    path="activity"
-                    element={<Activity />}
-                  />
-                </Route>
-
-                {/* Unknown authenticated route */}
-                <Route
-                  path="*"
-                  element={
-                    <Navigate
-                      to="/"
-                      replace
+                    path="owner"
+                    element={<OwnerOnly />}
+                  >
+                    <Route
+                      index
+                      element={<Dashboard />}
                     />
-                  }
-                />
 
+                    <Route
+                      path="sales"
+                      element={<Sales />}
+                    />
+
+                    <Route
+                      path="sales-summary"
+                      element={<SalesSummary />}
+                    />
+
+                    {/* Owner end-of-day alias */}
+                    <Route
+                      path="end-of-day"
+                      element={
+                        <Navigate
+                          to="/owner/sales-summary"
+                          replace
+                        />
+                      }
+                    />
+
+                    <Route
+                      path="products"
+                      element={<Products />}
+                    />
+
+                    <Route
+                      path="products/new"
+                      element={<AddProduct />}
+                    />
+
+                    <Route
+                      path="products/:id/edit"
+                      element={<EditProduct />}
+                    />
+
+                    <Route
+                      path="stock"
+                      element={<Stock />}
+                    />
+
+                    <Route
+                      path="stock/:id"
+                      element={<StockUpdate />}
+                    />
+
+                    <Route
+                      path="count"
+                      element={<Count />}
+                    />
+
+                    <Route
+                      path="categories"
+                      element={<Categories />}
+                    />
+
+                    <Route
+                      path="more"
+                      element={<More />}
+                    />
+
+                    {/* Workers */}
+                    <Route
+                      path="workers"
+                      element={<Workers />}
+                    />
+
+                    <Route
+                      path="workers/:id"
+                      element={<WorkerProfile />}
+                    />
+
+                    <Route
+                      path="workers/new"
+                      element={<AddWorker />}
+                    />
+
+                    <Route
+                      path="settings"
+                      element={<Settings />}
+                    />
+
+                    <Route
+                      path="activity"
+                      element={<Activity />}
+                    />
+                  </Route>
+
+                  {/* Unknown authenticated route */}
+                  <Route
+                    path="*"
+                    element={<Navigate to="/" replace />}
+                  />
+
+                </Route>
               </Route>
-            </Route>
 
-          </Routes>
+            </Routes>
 
-        </BasketProvider>
-      </HashRouter>
-    </AuthProvider>
+          </BasketProvider>
+        </HashRouter>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
