@@ -9,6 +9,7 @@ import {
   AlertCircle,
   ChevronLeft,
 } from 'lucide-react'
+
 import { getProductDetails } from '../../db/products'
 import {
   listMovements,
@@ -19,6 +20,14 @@ import {
   formatUpdated,
   stockStatus,
 } from '../../lib/format'
+
+import PageContainer from '../../components/layout/PageContainer'
+import PageHeader from '../../components/layout/PageHeader'
+import Card from '../../components/ui/Card'
+import Badge from '../../components/ui/Badge'
+import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
+import Select from '../../components/ui/Select'
 
 const REASONS = {
   add: [
@@ -39,9 +48,6 @@ const TYPE_LABELS = {
   sale: 'Sale',
   adjustment: 'Adjustment',
 }
-
-const inputClass =
-  'w-full rounded-xl border border-pink-100 bg-white px-4 py-3 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-pink-300 focus:ring-2 focus:ring-pink-50'
 
 export default function StockUpdate() {
   const { id } = useParams()
@@ -68,33 +74,38 @@ export default function StockUpdate() {
 
   if (details === undefined) {
     return (
-      <div className="rounded-xl border border-pink-100 bg-white p-6 text-center text-sm text-gray-400">
-        Loading product...
-      </div>
+      <PageContainer>
+        <div className="py-12 text-center text-sm text-text-muted">
+          Loading product...
+        </div>
+      </PageContainer>
     )
   }
 
   if (details === null) {
     return (
-      <div className="space-y-4">
-        <Link
-          to="/owner/stock"
-          className="inline-flex items-center gap-1 text-xs font-medium text-pink-700"
-        >
-          <ChevronLeft size={15} />
-          Stock
-        </Link>
+      <PageContainer>
+        <div className="space-y-5">
+          <Link
+            to="/owner/stock"
+            className="inline-flex items-center gap-1 text-sm font-medium text-interactive-primary"
+          >
+            <ChevronLeft size={16} />
+            Stock
+          </Link>
 
-        <div className="rounded-xl border border-pink-100 bg-white p-6 text-center">
-          <p className="text-sm font-medium text-gray-700">
-            Product not found
-          </p>
-
-          <p className="mt-1 text-xs text-gray-400">
-            This product no longer exists.
-          </p>
+          <Card variant="outlined" padding="lg">
+            <div className="py-4 text-center">
+              <p className="text-sm font-medium text-text-primary">
+                Product not found
+              </p>
+              <p className="mt-1 text-sm text-text-secondary">
+                This product no longer exists.
+              </p>
+            </div>
+          </Card>
         </div>
-      </div>
+      </PageContainer>
     )
   }
 
@@ -104,6 +115,13 @@ export default function StockUpdate() {
     product.stock,
     product.lowStockAt
   )
+
+  const badgeVariant =
+    product.stock <= 0
+      ? 'danger'
+      : product.stock <= product.lowStockAt
+        ? 'warning'
+        : 'success'
 
   const isSale =
     mode === 'remove' &&
@@ -117,11 +135,8 @@ export default function StockUpdate() {
     setMessage('')
   }
 
-  function changeReason(event) {
-    setReasonIndex(
-      Number(event.target.value)
-    )
-
+  function changeReason(value) {
+    setReasonIndex(Number(value))
     setPrice('')
   }
 
@@ -134,14 +149,11 @@ export default function StockUpdate() {
     const qty = Number(quantity)
 
     if (!Number.isInteger(qty) || qty <= 0) {
-      setError(
-        'Enter a whole number greater than zero.'
-      )
+      setError('Enter a whole number greater than zero.')
       return
     }
 
-    const reason =
-      REASONS[mode][reasonIndex]
+    const reason = REASONS[mode][reasonIndex]
 
     const signed =
       mode === 'add' ? qty : -qty
@@ -178,29 +190,25 @@ export default function StockUpdate() {
     setSaving(true)
 
     try {
-      const newStock =
-        await recordStockMovement(
-          id,
-          reason.type,
-          signed,
-          {
-            note: fullNote,
-            unitPrice,
-            listPrice,
-          }
-        )
-
-      setMessage(
-        `Saved. Stock is now ${newStock}.`
+      const newStock = await recordStockMovement(
+        id,
+        reason.type,
+        signed,
+        {
+          note: fullNote,
+          unitPrice,
+          listPrice,
+        }
       )
+
+      setMessage(`Saved. Stock is now ${newStock}.`)
 
       setQuantity('')
       setPrice('')
       setNote('')
     } catch (err) {
       setError(
-        err.message ||
-          'Could not save. Please try again.'
+        err.message || 'Could not save. Please try again.'
       )
     } finally {
       setSaving(false)
@@ -208,352 +216,238 @@ export default function StockUpdate() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-xs">
-        <Link
-          to="/owner"
-          className="font-medium text-pink-700"
-        >
-          Dashboard
-        </Link>
+    <PageContainer>
+      <div className="space-y-6">
+        <PageHeader
+          title="Update Stock"
+          description={`${product.name} · SKU: ${product.sku}`}
+        />
 
-        <span className="text-gray-300">
-          /
-        </span>
+        {/* Current stock */}
+        <Card variant="outlined" padding="lg">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-text-secondary">
+                Current stock
+              </p>
 
-        <Link
-          to="/owner/stock"
-          className="font-medium text-pink-700"
-        >
-          Stock
-        </Link>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-text-primary tabular-nums">
+                {product.stock}
+              </p>
 
-        <span className="text-gray-300">
-          /
-        </span>
+              <p className="mt-1 text-sm text-text-muted">
+                {product.stock === 1
+                  ? 'unit available'
+                  : 'units available'}
+              </p>
+            </div>
 
-        <span className="max-w-[140px] truncate text-gray-400">
-          {product.name}
-        </span>
-      </div>
+            <Badge variant={badgeVariant} size="md">
+              {status.label}
+            </Badge>
+          </div>
+        </Card>
 
-      {/* Product header */}
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900">
-          {product.name}
-        </h2>
+        {/* Stock form */}
+        <Card variant="outlined" padding="lg">
+          <div className="mb-5">
+            <h3 className="text-base font-semibold text-text-primary">
+              Update stock
+            </h3>
 
-        <p className="mt-1 text-xs text-gray-400">
-          SKU: {product.sku}
-        </p>
-      </div>
-
-      {/* Current stock */}
-      <section className="rounded-xl border border-pink-100 bg-pink-50 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium text-pink-700">
-              Current stock
-            </p>
-
-            <p className="mt-1 text-4xl font-semibold tracking-tight text-pink-800">
-              {product.stock}
-            </p>
-
-            <p className="mt-1 text-xs text-pink-600">
-              {product.stock === 1
-                ? 'unit available'
-                : 'units available'}
+            <p className="mt-1 text-sm text-text-secondary">
+              Record a stock movement so your inventory history stays accurate.
             </p>
           </div>
 
-          <span
-            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${status.className}`}
-          >
-            {status.label}
-          </span>
-        </div>
-      </section>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Add / Remove */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant={mode === 'add' ? 'primary' : 'outline'}
+                fullWidth
+                onClick={() => switchMode('add')}
+              >
+                <ArrowUpFromLine size={17} />
+                Add stock
+              </Button>
 
-      {/* Stock form */}
-      <section className="rounded-xl border border-pink-100 bg-white p-4">
-        <div className="mb-4">
-          <h3 className="text-sm font-medium text-gray-900">
-            Update stock
-          </h3>
+              <Button
+                type="button"
+                variant={mode === 'remove' ? 'danger' : 'outline'}
+                fullWidth
+                onClick={() => switchMode('remove')}
+              >
+                <ArrowDownToLine size={17} />
+                Remove stock
+              </Button>
+            </div>
 
-          <p className="mt-1 text-xs leading-5 text-gray-400">
-            Record a stock movement so your inventory
-            history stays accurate.
-          </p>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4"
-        >
-          {/* Add / Remove */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => switchMode('add')}
-              className={
-                mode === 'add'
-                  ? 'flex items-center justify-center gap-1.5 rounded-xl bg-pink-600 py-3 text-xs font-medium text-white'
-                  : 'flex items-center justify-center gap-1.5 rounded-xl border border-pink-100 bg-white py-3 text-xs font-medium text-gray-600'
-              }
-            >
-              <ArrowUpFromLine
-                size={15}
-                strokeWidth={1.8}
-              />
-              Add stock
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                switchMode('remove')
-              }
-              className={
-                mode === 'remove'
-                  ? 'flex items-center justify-center gap-1.5 rounded-xl bg-pink-600 py-3 text-xs font-medium text-white'
-                  : 'flex items-center justify-center gap-1.5 rounded-xl border border-pink-100 bg-white py-3 text-xs font-medium text-gray-600'
-              }
-            >
-              <ArrowDownToLine
-                size={15}
-                strokeWidth={1.8}
-              />
-              Remove stock
-            </button>
-          </div>
-
-          {/* Reason */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">
-              Reason
-            </label>
-
-            <select
-              className={inputClass}
-              value={reasonIndex}
+            {/* Reason */}
+            <Select
+              label="Reason"
+              value={String(reasonIndex)}
               onChange={changeReason}
-            >
-              {REASONS[mode].map(
-                (reason, index) => (
-                  <option
-                    key={reason.label}
-                    value={index}
-                  >
-                    {reason.label}
-                  </option>
-                )
-              )}
-            </select>
-          </div>
+              options={REASONS[mode].map((reason, index) => ({
+                value: String(index),
+                label: reason.label,
+              }))}
+            />
 
-          {/* Quantity */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">
-              Quantity
-            </label>
-
-            <input
-              className={inputClass}
+            {/* Quantity */}
+            <Input
+              label="Quantity"
               type="number"
               inputMode="numeric"
               min="1"
               step="1"
               value={quantity}
-              onChange={(event) =>
-                setQuantity(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setQuantity(event.target.value)}
               placeholder="e.g. 10"
               required
             />
-          </div>
 
-          {/* Sale price */}
-          {isSale && (
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-700">
-                Price per unit
-              </label>
+            {/* Sale price */}
+            {isSale && (
+              <div className="space-y-2">
+                <Input
+                  label="Price per unit"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  value={price}
+                  onChange={(event) => setPrice(event.target.value)}
+                  placeholder={`Default: ${formatKsh(product.sellingPrice)}`}
+                />
 
-              <input
-                className={inputClass}
-                type="number"
-                inputMode="numeric"
-                min="0"
-                value={price}
-                onChange={(event) =>
-                  setPrice(
-                    event.target.value
-                  )
-                }
-                placeholder={`Default: ${formatKsh(product.sellingPrice)}`}
-              />
+                <p className="text-xs text-text-muted">
+                  Leave blank to use the product's current selling price.
+                </p>
+              </div>
+            )}
 
-              <p className="mt-1.5 text-xs leading-5 text-gray-400">
-                Leave blank to use the product's
-                current selling price.
-              </p>
-            </div>
-          )}
-
-          {/* Note */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">
-              Note
-              <span className="font-normal text-gray-400">
-                {' '}
-                (optional)
-              </span>
-            </label>
-
-            <input
-              className={inputClass}
+            {/* Note */}
+            <Input
+              label="Note"
+              hint="Optional"
               value={note}
-              onChange={(event) =>
-                setNote(event.target.value)
-              }
+              onChange={(event) => setNote(event.target.value)}
               placeholder="Add a note..."
             />
-          </div>
 
-          {/* Messages */}
-          {error && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 p-3.5">
-              <AlertCircle
-                size={17}
-                strokeWidth={1.8}
-                className="mt-0.5 shrink-0 text-red-500"
-              />
+            {/* Messages */}
+            {error && (
+              <div className="flex items-start gap-3 rounded-lg border border-error/20 bg-error/5 p-3">
+                <AlertCircle
+                  size={18}
+                  className="mt-0.5 shrink-0 text-error"
+                />
+                <p className="text-sm leading-5 text-error">
+                  {error}
+                </p>
+              </div>
+            )}
 
-              <p className="text-sm leading-5 text-red-700">
-                {error}
-              </p>
-            </div>
-          )}
+            {message && (
+              <div className="flex items-start gap-3 rounded-lg border border-success/20 bg-success/5 p-3">
+                <CheckCircle2
+                  size={18}
+                  className="mt-0.5 shrink-0 text-success"
+                />
+                <p className="text-sm leading-5 text-success">
+                  {message}
+                </p>
+              </div>
+            )}
 
-          {message && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-green-100 bg-green-50 p-3.5">
-              <CheckCircle2
-                size={17}
-                strokeWidth={1.8}
-                className="mt-0.5 shrink-0 text-green-600"
-              />
+            <Button
+              type="submit"
+              fullWidth
+              loading={saving}
+              disabled={saving}
+            >
+              Save Stock Update
+            </Button>
+          </form>
+        </Card>
 
-              <p className="text-sm leading-5 text-green-700">
-                {message}
-              </p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full rounded-xl bg-pink-600 py-3 text-sm font-medium text-white disabled:opacity-60"
-          >
-            {saving
-              ? 'Saving...'
-              : 'Save Stock Update'}
-          </button>
-        </form>
-      </section>
-
-      {/* History */}
-      <section>
-        <div className="mb-2">
-          <h3 className="text-sm font-semibold text-gray-700">
-            Stock History
-          </h3>
-
-          <p className="mt-1 text-xs text-gray-400">
-            Recent changes to this product's stock.
-          </p>
-        </div>
-
-        {movements.length === 0 ? (
-          <div className="rounded-xl border border-pink-100 bg-white p-6 text-center">
-            <p className="text-sm font-medium text-gray-700">
-              No stock movements yet
-            </p>
-
-            <p className="mt-1 text-xs text-gray-400">
-              Stock changes will appear here after
-              you save an update.
+        {/* History */}
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-base font-semibold text-text-primary">
+              Stock History
+            </h3>
+            <p className="mt-1 text-sm text-text-secondary">
+              Recent changes to this product's stock.
             </p>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {movements.map((movement) => {
-              const isAddition =
-                movement.quantity > 0
 
-              return (
-                <div
-                  key={movement.id}
-                  className="rounded-xl border border-pink-100 bg-white p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {movement.note ||
-                          TYPE_LABELS[
-                            movement.type
-                          ] ||
-                          movement.type}
-                      </p>
+          {movements.length === 0 ? (
+            <Card variant="outlined" padding="lg">
+              <div className="py-4 text-center">
+                <p className="text-sm font-medium text-text-primary">
+                  No stock movements yet
+                </p>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Stock changes will appear here after you save an update.
+                </p>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {movements.map((movement) => {
+                const isAddition = movement.quantity > 0
 
-                      <p className="mt-1 text-xs text-gray-400">
-                        {formatUpdated(
-                          movement.timestamp
-                        )}
+                return (
+                  <Card
+                    key={movement.id}
+                    variant="outlined"
+                    padding="md"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary">
+                          {movement.note ||
+                            TYPE_LABELS[movement.type] ||
+                            movement.type}
+                        </p>
 
-                        {movement.type ===
-                          'sale' &&
-                          movement.unitPrice !=
-                            null && (
-                            <>
-                              {' '}
-                              · @{' '}
-                              {formatKsh(
-                                movement.unitPrice
-                              )}
+                        <p className="mt-1 text-xs text-text-muted">
+                          {formatUpdated(movement.timestamp)}
 
-                              {movement.listPrice !=
-                                null &&
-                                movement.unitPrice <
-                                  movement.listPrice &&
-                                ` (list ${formatKsh(movement.listPrice)})`}
-                            </>
-                          )}
-                      </p>
+                          {movement.type === 'sale' &&
+                            movement.unitPrice != null && (
+                              <>
+                                {' '}· @ {formatKsh(movement.unitPrice)}
+
+                                {movement.listPrice != null &&
+                                  movement.unitPrice < movement.listPrice &&
+                                  ` (list ${formatKsh(movement.listPrice)})`}
+                              </>
+                            )}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-semibold tabular-nums ${
+                          isAddition
+                            ? 'bg-success/10 text-success'
+                            : 'bg-error/10 text-error'
+                        }`}
+                      >
+                        {isAddition ? '+' : ''}
+                        {movement.quantity}
+                      </span>
                     </div>
-
-                    <span
-                      className={
-                        isAddition
-                          ? 'shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700'
-                          : 'shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600'
-                      }
-                    >
-                      {isAddition ? '+' : ''}
-                      {movement.quantity}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
-    </div>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+    </PageContainer>
   )
 }
-

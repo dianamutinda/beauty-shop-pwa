@@ -1,12 +1,12 @@
 
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Search,
-  ChevronRight,
-  SlidersHorizontal,
+  ClipboardCheck,
 } from 'lucide-react'
+
 import { searchProducts } from '../../db/products'
 import {
   getLowStockDefault,
@@ -14,15 +14,28 @@ import {
 } from '../../db/settings'
 import { stockStatus } from '../../lib/format'
 
+import Card from '../../components/ui/Card'
+import Badge from '../../components/ui/Badge'
+import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
+import PageContainer from '../../components/layout/PageContainer'
+import PageHeader from '../../components/layout/PageHeader'
+
 const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'low', label: 'Low Stock' },
+  { id: 'out', label: 'Out of Stock' },
   { id: 'in', label: 'In Stock' },
 ]
 
 function matchesFilter(filter, product) {
   if (filter === 'low') {
-    return product.stock <= product.lowStockAt
+    return product.stock > 0 &&
+      product.stock <= product.lowStockAt
+  }
+
+  if (filter === 'out') {
+    return product.stock <= 0
   }
 
   if (filter === 'in') {
@@ -33,68 +46,67 @@ function matchesFilter(filter, product) {
 }
 
 function StockCard({ product }) {
+  const navigate = useNavigate()
+
   const status = stockStatus(
     product.stock,
     product.lowStockAt
   )
 
+  const badgeVariant =
+    product.stock <= 0
+      ? 'danger'
+      : product.stock <= product.lowStockAt
+        ? 'warning'
+        : 'success'
+
   return (
-    <Link
-      to={`/owner/stock/${product.id}`}
-      className="block rounded-xl border border-pink-100 bg-white p-4 transition-colors hover:bg-pink-50/30"
+    <Card
+      variant="outlined"
+      padding="md"
+      className="h-full transition-colors"
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-gray-900">
+          <p className="truncate text-sm font-semibold text-text-primary">
             {product.name}
           </p>
 
-          <div className="mt-2 flex items-center gap-2">
-            <span
-              className={`rounded-full px-2 py-1 text-[11px] font-medium ${status.className}`}
-            >
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge variant={badgeVariant} size="sm">
               {status.label}
-            </span>
+            </Badge>
 
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-text-muted">
               {product.stock}{' '}
               {product.stock === 1 ? 'unit' : 'units'}
             </span>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="text-right">
-            <p className="text-sm font-semibold text-gray-900">
-              {product.stock}
-            </p>
-
-            <p className="mt-1 text-[11px] text-gray-400">
-              In stock
-            </p>
-          </div>
-
-          <ChevronRight
-            size={17}
-            strokeWidth={1.8}
-            className="text-gray-300"
-          />
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigate(`/owner/stock/${product.id}`)}
+        >
+          Restock
+        </Button>
       </div>
-    </Link>
+    </Card>
   )
 }
 
 export default function Stock() {
   const [text, setText] = useState('')
-
   const [params] = useSearchParams()
 
-  const [filter, setFilter] = useState(
-    params.get('filter') === 'low'
-      ? 'low'
-      : 'all'
+  const initialFilter = ['low', 'out', 'in'].includes(
+    params.get('filter')
   )
+    ? params.get('filter')
+    : 'all'
+
+  const [filter, setFilter] = useState(initialFilter)
 
   const products = useLiveQuery(
     () => searchProducts(text),
@@ -111,179 +123,160 @@ export default function Stock() {
   )
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-1.5 text-xs">
-          <Link
-            to="/owner"
-            className="font-medium text-pink-700"
-          >
-            Dashboard
-          </Link>
-
-          <span className="text-gray-300">/</span>
-
-          <span className="text-gray-400">
-            Stock
-          </span>
+    <PageContainer maxWidth="max-w-[1440px]">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <PageHeader
+            title="Stock"
+            description="Update and review your inventory levels."
+          />
         </div>
 
-        <div className="mt-3 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-pink-700">
-              Stock
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Update and review your inventory levels.
-            </p>
-          </div>
-
-          <Link
-            to="/owner/count"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-pink-200 bg-white px-3 py-2 text-xs font-medium text-pink-700"
-          >
-            <SlidersHorizontal
-              size={15}
-              strokeWidth={1.8}
-            />
-            Count Stock
-          </Link>
+        {/* Search */}
+        <div className="max-w-xl">
+          <Input
+            type="search"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Search products..."
+            leftIcon={<Search size={18} strokeWidth={1.8} />}
+          />
         </div>
-      </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search
-          size={17}
-          strokeWidth={1.8}
-          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-        />
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((item) => (
+            <Button
+              key={item.id}
+              type="button"
+              size="sm"
+              variant={filter === item.id ? 'primary' : 'outline'}
+              onClick={() => setFilter(item.id)}
+              className="rounded-full"
+            >
+              {item.label}
+            </Button>
+          ))}
+        </div>
 
-        <input
-          type="search"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Search products..."
-          className="w-full rounded-xl border border-pink-100 bg-white py-3 pl-10 pr-4 text-sm outline-none placeholder:text-gray-400 focus:border-pink-300 focus:ring-2 focus:ring-pink-50"
-        />
-      </div>
+        {/* Low-stock threshold */}
+        {lowDefault !== undefined && (
+          <Card variant="outlined" padding="md">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-text-primary">
+                  Low-stock warning
+                </p>
 
-      {/* Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {FILTERS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setFilter(item.id)}
-            className={
-              filter === item.id
-                ? 'shrink-0 rounded-full bg-pink-600 px-4 py-2 text-xs font-medium text-white'
-                : 'shrink-0 rounded-full border border-pink-100 bg-white px-4 py-2 text-xs font-medium text-gray-600'
-            }
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+                <p className="mt-1 text-xs leading-5 text-text-muted">
+                  Warn when stock reaches this quantity or below.
+                </p>
+              </div>
 
-      {/* Low-stock threshold */}
-      {lowDefault !== undefined && (
-        <div className="rounded-xl border border-pink-100 bg-white p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-800">
-                Low-stock warning
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-gray-400">
-                Warn when stock reaches this quantity or below.
-              </p>
+              <div className="w-20 shrink-0">
+                <Input
+                  key={lowDefault}
+                  type="number"
+                  min="0"
+                  defaultValue={lowDefault}
+                  onBlur={(e) =>
+                    setLowStockDefault(e.target.value).catch(() => {
+                      e.target.value = lowDefault
+                    })
+                  }
+                  className="text-center"
+                />
+              </div>
             </div>
+          </Card>
+        )}
 
-            <input
-              key={lowDefault}
-              type="number"
-              min="0"
-              defaultValue={lowDefault}
-              onBlur={(e) =>
-                setLowStockDefault(
-                  e.target.value
-                ).catch(() => {
-                  e.target.value = lowDefault
-                })
-              }
-              className="w-16 rounded-lg border border-pink-100 bg-gray-50 px-2 py-2 text-center text-sm font-medium text-gray-700 outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-50"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Results */}
-      {!products ? (
-        <div className="rounded-xl border border-pink-100 bg-white p-6 text-center text-sm text-gray-400">
-          Loading stock...
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-gray-500">
-              {visible.length}{' '}
-              {visible.length === 1
-                ? 'product'
-                : 'products'}
+        {/* Results */}
+        {!products ? (
+          <Card variant="outlined" padding="lg">
+            <p className="text-center text-sm text-text-muted">
+              Loading stock...
             </p>
-
-            {text && (
-              <button
-                type="button"
-                onClick={() => setText('')}
-                className="text-xs font-medium text-pink-700"
-              >
-                Clear search
-              </button>
-            )}
-          </div>
-
-          {visible.length === 0 ? (
-            <div className="rounded-xl border border-pink-100 bg-white p-6 text-center">
-              <p className="text-sm font-medium text-gray-700">
-                {products.length === 0
-                  ? 'No products yet'
-                  : 'No products found'}
+          </Card>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-text-secondary">
+                {visible.length}{' '}
+                {visible.length === 1 ? 'product' : 'products'}
               </p>
 
-              <p className="mt-1 text-xs leading-5 text-gray-400">
-                {products.length === 0
-                  ? 'Add products before managing their stock.'
-                  : text
-                    ? `Nothing matches "${text}". Try another product name.`
-                    : 'No products match this stock filter.'}
-              </p>
-
-              {products.length === 0 && (
-                <Link
-                  to="/owner/products/new"
-                  className="mt-4 inline-flex rounded-lg bg-pink-600 px-4 py-2.5 text-xs font-medium text-white"
+              {text && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setText('')}
                 >
-                  Add Product
-                </Link>
+                  Clear search
+                </Button>
               )}
             </div>
-          ) : (
-            <div className="space-y-3">
-              {visible.map((product) => (
-                <StockCard
-                  key={product.id}
-                  product={product}
-                />
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
+
+            {visible.length === 0 ? (
+              <Card
+                variant="outlined"
+                padding="lg"
+                className="text-center"
+              >
+                <p className="text-sm font-semibold text-text-primary">
+                  {products.length === 0
+                    ? 'No products yet'
+                    : 'No products found'}
+                </p>
+
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">
+                  {products.length === 0
+                    ? 'Add products before managing their stock.'
+                    : text
+                      ? `Nothing matches "${text}". Try another product name.`
+                      : 'No products match this stock filter.'}
+                </p>
+
+                {products.length === 0 && (
+                  <Link
+                    to="/owner/products/new"
+                    className="mt-4 inline-block"
+                  >
+                    <Button size="md">
+                      Add Product
+                    </Button>
+                  </Link>
+                )}
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                {visible.map((product) => (
+                  <StockCard
+                    key={product.id}
+                    product={product}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Floating Count Stock */}
+      <Link
+        to="/owner/count"
+        className="fixed bottom-7 right-7 z-30"
+      >
+        <Button
+          size="lg"
+          className="rounded-full shadow-md"
+        >
+          <ClipboardCheck size={19} strokeWidth={2.2} />
+          Count Stock
+        </Button>
+      </Link>
+    </PageContainer>
   )
 }
-
