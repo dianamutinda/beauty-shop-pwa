@@ -5,74 +5,76 @@ import {
   Route,
   Navigate,
   Outlet,
-} from 'react-router-dom'
+} from 'react-router-dom';
 
-import { AuthProvider, useRole } from './auth/AuthContext'
-import { BasketProvider } from './features/lookup/BasketContext'
-import { ThemeProvider } from './context/ThemeContext'
+import { AuthProvider, useRole } from './auth/AuthContext';
+import { BasketProvider } from './features/lookup/BasketContext';
+import { ThemeProvider } from './context/ThemeContext';
 
-import Layout from './components/Layout'
-import Login from './auth/Login'
-import SetPin from './auth/SetPin'
-import Landing from './auth/Landing'
+// Existing layouts
+import Layout from './components/Layout';
+import AppLayout from './components/layout/AppLayout';
+
+// Authentication
+import Login from './auth/Login';
+import SetPin from './auth/SetPin';
+import Landing from './auth/Landing';
 
 // Worker
-import Search from './features/lookup/Search'
-import ProductDetails from './features/lookup/ProductDetails'
-import SaleFlow from './features/lookup/SaleFlow'
-import SalesToday from './features/lookup/SalesToday'
-import EndOfDay from './features/lookup/EndOfDay'
-import Account from './features/lookup/Account'
+import Search from './features/lookup/Search';
+import ProductDetails from './features/lookup/ProductDetails';
+import SaleFlow from './features/lookup/SaleFlow';
+import SalesToday from './features/lookup/SalesToday';
+import EndOfDay from './features/lookup/EndOfDay';
+import Account from './features/lookup/Account';
 
 // Owner
-import Products from './features/owner/Products'
-import AddProduct from './features/owner/AddProduct'
-import EditProduct from './features/owner/EditProduct'
-import Categories from './features/owner/Categories'
-import Stock from './features/owner/Stock'
-import StockUpdate from './features/owner/StockUpdate'
-import Count from './features/owner/Count'
-import Dashboard from './features/owner/Dashboard'
-import Sales from './features/owner/Sales'
-import SalesSummary from './features/owner/SalesSummary'
-import More from './features/owner/More'
-import Settings from './features/owner/Settings'
-import Activity from './features/owner/Activity'
+import Products from './features/owner/Products';
+import AddProduct from './features/owner/AddProduct';
+import EditProduct from './features/owner/EditProduct';
+import Categories from './features/owner/Categories';
+import Stock from './features/owner/Stock';
+import StockUpdate from './features/owner/StockUpdate';
+import Count from './features/owner/Count';
+import Dashboard from './features/owner/Dashboard';
+import Sales from './features/owner/Sales';
+import SalesSummary from './features/owner/SalesSummary';
+import More from './features/owner/More';
+import Settings from './features/owner/Settings';
+import Activity from './features/owner/Activity';
 
 // Owner → Workers
-import Workers from './features/owner/workers/Workers'
-import AddWorker from './features/owner/workers/AddWorker'
-import WorkerProfile from './features/owner/workers/WorkerProfile'
+import Workers from './features/owner/workers/Workers';
+import AddWorker from './features/owner/workers/AddWorker';
+import WorkerProfile from './features/owner/workers/WorkerProfile';
 
 // Super Admin
-import SuperAdminLayout from './features/superAdmin/SuperAdminLayout'
-import SuperAdminDashboard from './features/superAdmin/Dashboard'
-import SuperAdminShops from './features/superAdmin/Shops'
+import SuperAdminLayout from './features/superAdmin/SuperAdminLayout';
+import SuperAdminDashboard from './features/superAdmin/Dashboard';
+import SuperAdminShops from './features/superAdmin/Shops';
 
 
+// Authentication guard
 function RequireAuth() {
-  const { user, loading } = useRole()
+  const { user, loading } = useRole();
 
-  if (loading) {
-    return null
-  }
+  if (loading) return null;
 
   return user
     ? <Outlet />
-    : <Navigate to="/login" replace />
+    : <Navigate to="/login" replace />;
 }
 
 
+// Owner role guard
 function OwnerOnly() {
-  const { role, loading } = useRole()
+  const { role, loading } = useRole();
 
-  if (loading) {
-    return null
-  }
+  if (loading) return null;
 
   return role === 'owner'
     ? <Outlet />
-    : <Navigate to="/" replace />
+    : <Navigate to="/" replace />;
 }
 
 
@@ -104,23 +106,23 @@ export default function App() {
                 />
               </Route>
 
-              {/* Authenticated Shop App */}
+
+              {/* Authenticated application */}
               <Route element={<RequireAuth />}>
+
+                {/* Worker application - existing layout */}
                 <Route element={<Layout />}>
 
-                  {/* Landing */}
                   <Route
                     index
                     element={<Landing />}
                   />
 
-                  {/* PIN setup */}
                   <Route
                     path="set-pin"
                     element={<SetPin />}
                   />
 
-                  {/* Worker / Shop Operations */}
                   <Route
                     path="search"
                     element={<Search />}
@@ -151,24 +153,34 @@ export default function App() {
                     element={<Account />}
                   />
 
-                  {/* Keep old URL working */}
+                  {/* Old URL compatibility */}
                   <Route
                     path="sales-today"
-                    element={
-                      <Navigate to="/sales" replace />
-                    }
+                    element={<Navigate to="/sales" replace />}
                   />
 
-                  {/* Owner */}
-                  <Route
-                    path="owner"
-                    element={<OwnerOnly />}
-                  >
+                </Route>
+
+
+                {/* Owner application - new layout */}
+                <Route
+                  path="owner"
+                  element={<OwnerOnly />}
+                >
+                  <Route element={<AppLayout />}>
+
+                    {/* Dashboard */}
                     <Route
                       index
+                      element={<Navigate to="dashboard" replace />}
+                    />
+
+                    <Route
+                      path="dashboard"
                       element={<Dashboard />}
                     />
 
+                    {/* Sales */}
                     <Route
                       path="sales"
                       element={<Sales />}
@@ -179,7 +191,6 @@ export default function App() {
                       element={<SalesSummary />}
                     />
 
-                    {/* Owner end-of-day alias */}
                     <Route
                       path="end-of-day"
                       element={
@@ -190,6 +201,7 @@ export default function App() {
                       }
                     />
 
+                    {/* Products */}
                     <Route
                       path="products"
                       element={<Products />}
@@ -206,6 +218,12 @@ export default function App() {
                     />
 
                     <Route
+                      path="categories"
+                      element={<Categories />}
+                    />
+
+                    {/* Stock */}
+                    <Route
                       path="stock"
                       element={<Stock />}
                     />
@@ -218,16 +236,6 @@ export default function App() {
                     <Route
                       path="count"
                       element={<Count />}
-                    />
-
-                    <Route
-                      path="categories"
-                      element={<Categories />}
-                    />
-
-                    <Route
-                      path="more"
-                      element={<More />}
                     />
 
                     {/* Workers */}
@@ -246,6 +254,12 @@ export default function App() {
                       element={<AddWorker />}
                     />
 
+                    {/* Other */}
+                    <Route
+                      path="more"
+                      element={<More />}
+                    />
+
                     <Route
                       path="settings"
                       element={<Settings />}
@@ -255,15 +269,16 @@ export default function App() {
                       path="activity"
                       element={<Activity />}
                     />
+
                   </Route>
-
-                  {/* Unknown authenticated route */}
-                  <Route
-                    path="*"
-                    element={<Navigate to="/" replace />}
-                  />
-
                 </Route>
+
+                {/* Unknown authenticated route */}
+                <Route
+                  path="*"
+                  element={<Navigate to="/" replace />}
+                />
+
               </Route>
 
             </Routes>
@@ -272,5 +287,5 @@ export default function App() {
         </HashRouter>
       </AuthProvider>
     </ThemeProvider>
-  )
+  );
 }

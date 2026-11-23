@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useState } from 'react'
+import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   Package,
@@ -12,7 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Store,
-} from 'lucide-react';
+} from 'lucide-react'
 
 const defaultSections = [
   {
@@ -37,32 +37,31 @@ const defaultSections = [
       { label: 'Settings', path: '/owner/settings', icon: Settings },
     ],
   },
-];
+]
 
 export default function Sidebar({
-  brandName = 'My Shop',
   sections = defaultSections,
   collapsed: controlledCollapsed,
   onCollapsedChange,
   className = '',
 }) {
-  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false)
 
-  const isControlled = controlledCollapsed !== undefined;
+  const isControlled = controlledCollapsed !== undefined
 
   const collapsed = isControlled
     ? controlledCollapsed
-    : internalCollapsed;
+    : internalCollapsed
 
   const toggleCollapsed = () => {
-    const nextValue = !collapsed;
+    const nextValue = !collapsed
 
     if (isControlled) {
-      onCollapsedChange?.(nextValue);
+      onCollapsedChange?.(nextValue)
     } else {
-      setInternalCollapsed(nextValue);
+      setInternalCollapsed(nextValue)
     }
-  };
+  }
 
   return (
     <aside
@@ -77,22 +76,11 @@ export default function Sidebar({
         ${className}
       `}
     >
-      {/* Brand */}
-      <div
-        className={`
-          flex h-16 shrink-0 items-center border-b border-divider
-          ${collapsed ? 'justify-center px-2' : 'gap-3 px-4 lg:px-5'}
-        `}
-      >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-interactive-soft text-interactive-primary">
+      {/* Brand Icon */}
+      <div className="flex h-16 shrink-0 items-center justify-center border-b border-divider">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-interactive-soft text-interactive-primary">
           <Store size={20} />
         </div>
-
-        {!collapsed && (
-          <span className="truncate font-semibold text-text-primary">
-            {brandName}
-          </span>
-        )}
       </div>
 
       {/* Navigation */}
@@ -110,7 +98,7 @@ export default function Sidebar({
 
             <div className="space-y-1">
               {section.items.map((item) => {
-                const Icon = item.icon;
+                const Icon = item.icon
 
                 return (
                   <NavLink
@@ -142,14 +130,14 @@ export default function Sidebar({
                       </span>
                     )}
                   </NavLink>
-                );
+                )
               })}
             </div>
           </div>
         ))}
       </nav>
 
-      {/* Collapse control */}
+      {/* Collapse Control */}
       <div className="shrink-0 border-t border-divider p-2 sm:p-3">
         <button
           type="button"
@@ -174,5 +162,5 @@ export default function Sidebar({
         </button>
       </div>
     </aside>
-  );
+  )
 }

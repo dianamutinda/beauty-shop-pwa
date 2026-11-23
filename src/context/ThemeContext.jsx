@@ -4,29 +4,33 @@ import {
   useContext,
   useEffect,
   useState,
-} from 'react'
+} from 'react';
 
-const ThemeContext = createContext(null)
+const ThemeContext = createContext(null);
+
+function getInitialTheme() {
+  const savedTheme = localStorage.getItem('shop-theme');
+
+  return savedTheme === 'dark' ? 'dark' : 'light';
+}
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('shop-theme') || 'light'
-  })
+  const [theme, setTheme] = useState(getInitialTheme);
 
   useEffect(() => {
-    const root = document.documentElement
+    const root = document.documentElement;
 
-    root.classList.toggle('dark', theme === 'dark')
-    root.style.colorScheme = theme
+    root.classList.toggle('dark', theme === 'dark');
+    root.style.colorScheme = theme;
 
-    localStorage.setItem('shop-theme', theme)
-  }, [theme])
+    localStorage.setItem('shop-theme', theme);
+  }, [theme]);
 
   const toggleTheme = () => {
     setTheme(current =>
       current === 'light' ? 'dark' : 'light'
-    )
-  }
+    );
+  };
 
   return (
     <ThemeContext.Provider
@@ -39,17 +43,17 @@ export function ThemeProvider({ children }) {
     >
       {children}
     </ThemeContext.Provider>
-  )
+  );
 }
 
 export function useTheme() {
-  const context = useContext(ThemeContext)
+  const context = useContext(ThemeContext);
 
   if (!context) {
     throw new Error(
       'useTheme must be used within ThemeProvider'
-    )
+    );
   }
 
-  return context
+  return context;
 }

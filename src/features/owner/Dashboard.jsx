@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -6,78 +7,55 @@ import {
   AlertTriangle,
   Receipt,
   Boxes,
-  Plus,
-  ArrowRight,
+  ArrowUpRight,
   Calendar,
-  ChevronRight,
-  TrendingUp,
   Wallet,
+  TrendingUp,
+  ShoppingCart,
+  BarChart3,
+  ArrowRight,
+  Users,
+  CreditCard,
 } from 'lucide-react'
+
 import { getDashboardStats } from '../../db/dashboard'
 import { db } from '../../db'
 import { formatKsh } from '../../lib/format'
 
+import Card from '../../components/ui/Card'
+import StatCard from '../../components/ui/StatCard'
+import Tabs from '../../components/ui/Tabs'
+import PageContainer from '../../components/layout/PageContainer'
+import PageHeader from '../../components/layout/PageHeader'
+import NotificationBell from '../../components/ui/NotificationBell'
+
 const TIMEFRAMES = [
-  { id: 'today', label: 'Today' },
-  { id: '7days', label: '7 days' },
-  { id: 'month', label: 'This month' },
-  { id: 'year', label: 'This year' },
-  { id: 'custom', label: 'Custom' },
+  { value: 'today', label: 'Today' },
+  { value: '7days', label: '7 days' },
+  { value: 'month', label: 'This month' },
+  { value: 'year', label: 'This year' },
+  { value: 'custom', label: 'Custom' },
 ]
-
-function StatCard({
-  label,
-  value,
-  growthValue,
-  to,
-  icon: Icon,
-  valueClass = 'text-gray-900',
-}) {
-  const isPositive = growthValue === undefined || growthValue >= 0
-
-  return (
-    <div className="block rounded-xl border border-pink-100 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-gray-500">{label}</p>
-          <p className={`mt-1 text-2xl font-semibold tracking-tight ${valueClass}`}>
-            {value}
-          </p>
-        </div>
-
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pink-50 text-pink-700">
-          <Icon size={18} strokeWidth={1.8} />
-        </div>
-      </div>
-
-      {growthValue !== undefined && (
-        <p className={`mt-2 text-xs font-medium flex items-center gap-1 ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
-          <span>{isPositive ? '↑' : '↓'}</span>
-          <span>
-            {growthValue === 100 
-              ? 'New vs. previous period' 
-              : `${Math.abs(growthValue)}% vs. previous period`}
-          </span>
-        </p>
-      )}
-    </div>
-  )
-}
 
 const ACTIONS = [
   {
-    to: '/owner/products/new',
-    label: 'Add Product',
-    icon: Plus,
+    to: '/owner/sales/new',
+    label: 'New Sale',
+    icon: ShoppingCart,
   },
   {
     to: '/owner/stock',
-    label: 'Update Stock',
+    label: 'Manage Stock',
     icon: Boxes,
   },
   {
-    to: '/owner/count',
-    label: 'Count Stock',
+    to: '/owner/reports',
+    label: 'View Reports',
+    icon: BarChart3,
+  },
+  {
+    to: '/owner/products/new',
+    label: 'Add Products',
     icon: Package,
   },
 ]
@@ -92,7 +70,7 @@ function formatTime(timestamp) {
 function formatDate(date) {
   return new Date(date).toLocaleDateString('en-GB', {
     day: 'numeric',
-    month: 'short',
+    month: 'long',
     year: 'numeric',
   })
 }
@@ -103,11 +81,13 @@ export default function Dashboard() {
   const [customEnd, setCustomEnd] = useState('')
 
   const stats = useLiveQuery(
-    () => getDashboardStats(timeframe, { start: customStart, end: customEnd }),
+    () => getDashboardStats(timeframe, {
+      start: customStart,
+      end: customEnd,
+    }),
     [timeframe, customStart, customEnd]
   )
 
-  // Compute dynamic label for the date range banner
   const dateRangeLabel = useMemo(() => {
     const now = new Date()
 
@@ -137,38 +117,47 @@ export default function Dashboard() {
       if (customStart && customEnd) {
         return `${formatDate(customStart)} – ${formatDate(customEnd)}`
       }
-      return 'Select date range below'
+
+      return 'Select a date range'
     }
 
     return ''
   }, [timeframe, customStart, customEnd])
 
-  // Fetch recent sales movements for the feed
   const movements = useLiveQuery(
-    () => db.stockMovements.where('type').equals('sale').reverse().limit(10).toArray(),
+    () => db.stockMovements
+      .where('type')
+      .equals('sale')
+      .reverse()
+      .limit(10)
+      .toArray(),
     []
   )
 
   const recentSales = useMemo(() => {
     if (!movements) return []
+
     const map = new Map()
-    for (const m of movements) {
-      if (!m.saleId || m.is_void || m.voided) continue
-      if (!map.has(m.saleId)) {
-        map.set(m.saleId, {
-          saleId: m.saleId,
-          timestamp: m.timestamp,
-          paymentMethod: m.paymentMethod,
+
+    for (const movement of movements) {
+      if (!movement.saleId || movement.is_void || movement.voided) continue
+
+      if (!map.has(movement.saleId)) {
+        map.set(movement.saleId, {
+          saleId: movement.saleId,
+          timestamp: movement.timestamp,
+          paymentMethod: movement.paymentMethod,
           total: 0,
           itemsCount: 0,
         })
       }
-      const entry = map.get(m.saleId)
-      entry.total += Math.abs(m.quantity) * (m.unitPrice || 0)
-      entry.itemsCount += Math.abs(m.quantity)
+
+      const sale = map.get(movement.saleId)
+
+      sale.total += Math.abs(movement.quantity) * (movement.unitPrice || 0)
+      sale.itemsCount += Math.abs(movement.quantity)
     }
-    
-    // Convert to array and strictly sort descending (newest timestamp first)
+
     return Array.from(map.values())
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .slice(0, 4)
@@ -176,174 +165,231 @@ export default function Dashboard() {
 
   if (!stats) {
     return (
-      <div className="rounded-xl border border-pink-100 bg-white p-6 text-center text-sm text-gray-400">
-        Loading dashboard...
-      </div>
+      <PageContainer>
+        <Card padding="lg">
+          <p className="text-sm text-text-secondary text-center">
+            Loading dashboard...
+          </p>
+        </Card>
+      </PageContainer>
     )
   }
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold text-pink-700">
-          Dashboard
-        </h2>
+    <PageContainer className="space-y-6 pb-8">
 
-        <p className="mt-1 text-sm text-gray-500">
-          Here's how your shop is performing.
-        </p>
-      </div>
+      {/* Page Header */}
+      <PageHeader
+        title="Dashboard"
+        description={formatDate(new Date())}
+        actions={
+          <NotificationBell notifications={[]} />
+        }
+      />
 
-      {/* Timeframe Filter Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {TIMEFRAMES.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setTimeframe(tab.id)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-              timeframe === tab.id
-                ? 'bg-pink-600 text-white shadow-sm'
-                : 'bg-white text-gray-600 border border-pink-100 hover:bg-gray-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Sales Overview */}
+      <Link
+        to="/owner/sales"
+        className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary"
+      >
+        <Card
+          padding="md"
+          className="!overflow-hidden !border-transparent !bg-[#2E5B3D] !text-white"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white/75">
+                Today's Sales
+              </p>
 
-      {/* Dynamic Date Range Display Bar */}
-      <div className="flex items-center justify-between rounded-xl border border-pink-100 bg-white px-4 py-3 text-xs text-gray-600 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Calendar size={15} className="text-pink-600" />
-          <span className="font-medium text-gray-700">{dateRangeLabel}</span>
-        </div>
-        <ChevronRight size={15} className="text-gray-400" />
-      </div>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+                {formatKsh(stats.salesToday)}
+              </h2>
 
-      {/* Custom Date Inputs (Conditional) */}
-      {timeframe === 'custom' && (
-        <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-pink-100 text-sm shadow-sm">
-          <input 
-            type="date" 
-            value={customStart} 
-            onChange={(e) => setCustomStart(e.target.value)} 
-            className="border border-pink-100 rounded px-2 py-1 text-xs w-full outline-none"
-          />
-          <span className="text-gray-400">to</span>
-          <input 
-            type="date" 
-            value={customEnd} 
-            onChange={(e) => setCustomEnd(e.target.value)} 
-            className="border border-pink-100 rounded px-2 py-1 text-xs w-full outline-none"
-          />
-        </div>
-      )}
+              {stats.salesGrowth !== undefined && (
+                <div className="mt-3 flex items-center gap-1.5 text-xs text-white/85">
+                  <TrendingUp size={14} />
 
-      {/* Empty shop notice */}
-      {stats.totalProducts === 0 && (
-        <div className="rounded-xl border border-pink-100 bg-pink-50 p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-pink-700">
-              <Package size={18} strokeWidth={1.8} />
+                  <span>
+                    {Math.abs(stats.salesGrowth)}% vs yesterday
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div>
-              <p className="text-sm font-medium text-pink-900">
-                Your shop has no products yet.
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-pink-700">
-                Add your first product to start managing stock and sales.
-              </p>
-
-              <Link
-                to="/owner/products/new"
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-pink-700"
-              >
-                Add the first product
-                <ArrowRight size={14} strokeWidth={2} />
-              </Link>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10">
+              <Receipt size={21} className="text-white" />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Stats Grid */}
-      <section>
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            label="Total Sales"
-            value={formatKsh(stats.salesToday)}
-            growthValue={stats.salesGrowth}
-            icon={Receipt}
-          />
+          <div className="mt-5 flex h-12 items-end justify-end gap-1.5 opacity-70">
+            {[18, 25, 21, 34, 29, 40, 35, 48, 42, 56].map((height, index) => (
+              <div
+                key={index}
+                className="w-2 rounded-t-sm bg-white/70"
+                style={{ height: `${height}%` }}
+              />
+            ))}
+          </div>
+        </Card>
+      </Link>
 
-          <StatCard
-  label="Stock Value"
-  value={formatKsh(stats.stockValue)}
-  icon={Wallet}
-/>
+      {/* Business Overview */}
+      <section className="space-y-3">
 
-          <StatCard
-            label="Units Sold"
-            value={stats.unitsSoldToday}
-            growthValue={stats.unitsGrowth}
-            icon={Package}
-          />
-
-          <StatCard
-            label="Total Products"
-            value={stats.totalProducts}
-            icon={Boxes}
-            to="/owner/products"
-          />
-        </div>
-      </section>
-
-      {/* Recent Sales Section */}
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">
-            Recent Sales
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-text-primary">
+            Business Overview
           </h3>
-          <Link to="/owner/sales" className="text-xs font-medium text-pink-600 hover:underline">
-            View all ›
-          </Link>
+
+          <Tabs
+            tabs={TIMEFRAMES}
+            value={timeframe}
+            onChange={setTimeframe}
+            variant="pills"
+            size="sm"
+            showContent={false}
+          />
         </div>
 
-        <div className="rounded-xl border border-pink-100 bg-white shadow-sm divide-y divide-gray-100 overflow-hidden">
-          {recentSales.length === 0 ? (
-            <div className="p-4 text-center text-xs text-gray-400">
-              No recent sales recorded yet.
-            </div>
-          ) : (
-            recentSales.map((sale) => (
-              <div key={sale.saleId} className="p-3.5 flex items-center justify-between text-xs">
-                <div>
-                  <p className="font-medium text-gray-900">{formatTime(sale.timestamp)}</p>
-                  <p className="text-gray-400 mt-0.5">{sale.itemsCount} {sale.itemsCount === 1 ? 'item' : 'items'}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="px-2.5 py-1 rounded-md bg-pink-50 text-pink-700 font-medium uppercase text-[10px]">
-                    {sale.paymentMethod || 'Cash'}
-                  </span>
-                  <span className="font-semibold text-gray-900 text-sm">{formatKsh(sale.total)}</span>
-                </div>
+        {timeframe === 'custom' && (
+          <Card padding="sm" variant="outlined">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <label className="mb-1 block text-xs text-text-secondary">
+                  Start date
+                </label>
+
+                <input
+                  type="date"
+                  value={customStart}
+                  max={customEnd || undefined}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="w-full min-w-0 rounded-lg border border-border bg-surface px-2 py-2 text-xs text-text-primary outline-none focus:border-interactive-primary"
+                />
               </div>
-            ))
-          )}
+
+              <div className="min-w-0">
+                <label className="mb-1 block text-xs text-text-secondary">
+                  End date
+                </label>
+
+                <input
+                  type="date"
+                  value={customEnd}
+                  min={customStart || undefined}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="w-full min-w-0 rounded-lg border border-border bg-surface px-2 py-2 text-xs text-text-primary outline-none focus:border-interactive-primary"
+                />
+              </div>
+            </div>
+          </Card>
+        )}
+
+        <p className="flex items-center gap-2 text-xs text-text-muted">
+          <Calendar size={13} />
+          {dateRangeLabel}
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+
+          {/* Stock Value */}
+          <Link
+            to="/owner/stock"
+            className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary"
+          >
+            <StatCard
+              title="Stock Value"
+              value={formatKsh(stats.stockValue)}
+              icon={<Wallet size={18} />}
+            />
+          </Link>
+
+          {/* Total Products */}
+          <Link
+            to="/owner/products"
+            className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary"
+          >
+            <StatCard
+              title="Total Products"
+              value={stats.totalProducts}
+              icon={<Boxes size={18} />}
+            />
+          </Link>
+
+          {/* Products Sold */}
+          <Link
+            to="/owner/sales"
+            className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary"
+          >
+            <StatCard
+              title="Products Sold"
+              value={stats.unitsSoldToday}
+              icon={<Package size={18} />}
+              trend={
+                stats.unitsGrowth !== undefined
+                  ? `${Math.abs(stats.unitsGrowth)}% vs previous`
+                  : undefined
+              }
+              trendVariant={
+                (stats.unitsGrowth ?? 0) >= 0 ? 'success' : 'danger'
+              }
+            />
+          </Link>
+
+          {/* Low Stock */}
+          <Link
+            to="/owner/stock?filter=low"
+            className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary"
+          >
+            <StatCard
+              title="Low Stock"
+              value={stats.lowStock}
+              icon={<AlertTriangle size={18} />}
+              trend={stats.lowStock > 0 ? 'Needs attention' : 'All stocked'}
+              trendVariant={stats.lowStock > 0 ? 'warning' : 'success'}
+            />
+          </Link>
+
         </div>
       </section>
 
-      {/* Quick actions */}
-      <section>
-        <h3 className="mb-2 text-sm font-semibold text-gray-700">
+      {/* Sales Performance */}
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-base font-semibold text-text-primary">
+            Sales Performance
+          </h3>
+
+          <p className="mt-1 text-xs text-text-secondary">
+            Sales over selected period
+          </p>
+        </div>
+
+        <Card padding="md">
+          <div className="flex h-40 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-interactive-soft text-interactive-primary">
+              <TrendingUp size={20} />
+            </div>
+
+            <p className="mt-3 text-sm font-medium text-text-secondary">
+              Sales chart
+            </p>
+
+            <p className="mt-1 text-xs text-text-muted">
+              Chart visualization coming soon
+            </p>
+          </div>
+        </Card>
+      </section>
+
+      {/* Quick Actions */}
+      <section className="space-y-3">
+        <h3 className="text-base font-semibold text-text-primary">
           Quick Actions
         </h3>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {ACTIONS.map((action) => {
             const Icon = action.icon
 
@@ -351,56 +397,206 @@ export default function Dashboard() {
               <Link
                 key={action.to}
                 to={action.to}
-                className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl border border-pink-100 bg-white px-2 py-4 text-center transition-colors hover:bg-pink-50/30 shadow-sm"
+                className="group flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3 py-3 transition-colors hover:bg-interactive-soft"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-pink-50 text-pink-700">
-                  <Icon
-                    size={17}
-                    strokeWidth={1.8}
-                  />
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-interactive-soft text-interactive-primary">
+                    <Icon size={16} />
+                  </div>
+
+                  <span className="truncate text-xs font-medium text-text-primary">
+                    {action.label}
+                  </span>
                 </div>
 
-                <span className="text-xs font-medium text-gray-700">
-                  {action.label}
-                </span>
+                <ArrowUpRight
+                  size={14}
+                  className="shrink-0 text-text-muted transition-colors group-hover:text-interactive-primary"
+                />
               </Link>
             )
           })}
         </div>
       </section>
 
-      {/* Inventory attention / Low Stock Banner */}
+      {/* Customer Credit */}
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-base font-semibold text-text-primary">
+            Customer Credit
+          </h3>
+
+          <p className="mt-1 text-xs text-text-secondary">
+            Manage customers who purchase on credit and track outstanding balances.
+          </p>
+        </div>
+
+        <Link
+          to="/owner/customers"
+          className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary"
+        >
+          <Card
+            padding="md"
+            className="transition-colors hover:bg-background"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-interactive-soft text-interactive-primary">
+                  <CreditCard size={19} />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text-primary">
+                    Credit Accounts
+                  </p>
+
+                  <p className="mt-1 text-xs text-text-secondary">
+                    View customer balances and repayments
+                  </p>
+                </div>
+              </div>
+
+              <ArrowRight
+                size={17}
+                className="shrink-0 text-text-muted"
+              />
+            </div>
+          </Card>
+        </Link>
+      </section>
+
+      {/* Recent Activities */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-text-primary">
+            Recent Activities
+          </h3>
+
+          <Link
+            to="/owner/sales"
+            className="flex shrink-0 items-center gap-1 text-xs font-medium text-interactive-primary"
+          >
+            View All
+            <ArrowRight size={13} />
+          </Link>
+        </div>
+
+        <Card padding="none">
+          {recentSales.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-interactive-soft text-interactive-primary">
+                <ShoppingCart size={18} />
+              </div>
+
+              <p className="mt-3 text-sm font-medium text-text-secondary">
+                No recent activities
+              </p>
+
+              <p className="mt-1 text-xs text-text-muted">
+                Completed sales will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-divider">
+              {recentSales.map((sale) => (
+                <div
+                  key={sale.saleId}
+                  className="flex items-center justify-between gap-3 px-4 py-3.5"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-interactive-soft text-interactive-primary">
+                      <ShoppingCart size={16} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-text-primary">
+                        Sale Completed
+                      </p>
+
+                      <p className="mt-1 text-[11px] text-text-secondary">
+                        {sale.itemsCount} {sale.itemsCount === 1 ? 'item' : 'items'}
+                        {' · '}
+                        {sale.paymentMethod || 'Cash'}
+                      </p>
+
+                      <p className="mt-1 text-[10px] text-text-muted">
+                        {formatTime(sale.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="shrink-0 text-xs font-semibold text-text-primary">
+                    {formatKsh(sale.total)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </section>
+
+      {/* Low Stock Alert */}
       {stats.lowStock > 0 && (
         <Link
           to="/owner/stock?filter=low"
-          className="flex items-center justify-between gap-3 rounded-xl border border-amber-100 bg-amber-50 p-4 shadow-sm"
+          className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning"
         >
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-amber-600">
-              <AlertTriangle
-                size={18}
-                strokeWidth={1.8}
-              />
+          <Card
+            padding="md"
+            className="border-warning/30 bg-warning/5 transition-colors hover:bg-warning/10"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+                  <AlertTriangle size={18} />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text-primary">
+                    Low Stock Alert
+                  </p>
+
+                  <p className="mt-1 text-xs text-text-secondary">
+                    {stats.lowStock} {stats.lowStock === 1 ? 'product needs' : 'products need'} attention.
+                  </p>
+                </div>
+              </div>
+
+              <ArrowRight size={17} className="shrink-0 text-warning" />
             </div>
-
-            <div>
-              <p className="text-sm font-medium text-amber-900">
-                Low Stock Alert
-              </p>
-
-              <p className="mt-0.5 text-xs text-amber-700">
-                {stats.lowStock} {stats.lowStock === 1 ? 'product needs' : 'products need'} attention.
-              </p>
-            </div>
-          </div>
-
-          <ArrowRight
-            size={17}
-            strokeWidth={1.8}
-            className="shrink-0 text-amber-600"
-          />
+          </Card>
         </Link>
       )}
-    </div>
+
+      {/* Empty Shop Notice */}
+      {stats.totalProducts === 0 && (
+        <Card padding="md" variant="outlined">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-interactive-soft text-interactive-primary">
+              <Package size={18} />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-text-primary">
+                Your shop has no products yet.
+              </p>
+
+              <p className="mt-1 text-xs text-text-secondary">
+                Add your first product to start managing stock and sales.
+              </p>
+
+              <Link
+                to="/owner/products/new"
+                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-interactive-primary"
+              >
+                Add your first product
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        </Card>
+      )}
+
+    </PageContainer>
   )
 }
