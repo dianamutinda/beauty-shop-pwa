@@ -3,29 +3,12 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle } from 'lucide-react'
 
-const inputClass =
-  'w-full rounded-xl border border-pink-100 bg-white px-4 py-3 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-pink-300 focus:ring-2 focus:ring-pink-50'
-
-function Field({ label, required, children, hint }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-gray-700">
-        {label}
-        {required && (
-          <span className="text-red-500"> *</span>
-        )}
-      </span>
-
-      {children}
-
-      {hint && (
-        <p className="mt-1.5 text-xs leading-5 text-gray-400">
-          {hint}
-        </p>
-      )}
-    </label>
-  )
-}
+import Card from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
+import Select from '../../components/ui/Select'
+import PageContainer from '../../components/layout/PageContainer'
+import PageHeader from '../../components/layout/PageHeader'
 
 function validate(values, isNew) {
   if (!values.name.trim()) {
@@ -95,6 +78,13 @@ export default function ProductForm({
     }
   }
 
+  function setCategory(value) {
+    setValues((current) => ({
+      ...current,
+      categoryId: value,
+    }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
 
@@ -121,145 +111,121 @@ export default function ProductForm({
     }
   }
 
+  const categoryOptions = categories.map((category) => ({
+    value: category.id,
+    label: category.name,
+  }))
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-5"
+    <PageContainer
+      maxWidth="max-w-4xl"
+      className="pb-10"
     >
-      <div className="flex items-center gap-1.5 text-xs">
-        <Link
-          to="/owner"
-          className="font-medium text-pink-700"
-        >
-          Dashboard
-        </Link>
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-6"
+      >
+        
 
-        <span className="text-gray-300">/</span>
+        
 
-        <Link
-          to="/owner/products"
-          className="font-medium text-pink-700"
-        >
-          Products
-        </Link>
+        {/* Error message */}
+        {error && (
+          <div className="flex items-start gap-3 rounded-xl border border-error/30 bg-error/10 p-4">
+            <AlertCircle
+              size={18}
+              strokeWidth={1.8}
+              className="mt-0.5 shrink-0 text-error"
+            />
 
-        <span className="text-gray-300">/</span>
-
-        <span className="text-gray-400">
-          {isNew ? 'Add Product' : 'Edit Product'}
-        </span>
-      </div>
-
-      <div>
-        <h2 className="text-xl font-semibold text-pink-700">
-          {isNew ? 'Add Product' : 'Edit Product'}
-        </h2>
-
-        <p className="mt-1 text-sm text-gray-500">
-          {isNew
-            ? 'Add a product to your shop inventory.'
-            : 'Update this product’s information.'}
-        </p>
-      </div>
-
-      {error && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 p-3.5">
-          <AlertCircle
-            size={17}
-            strokeWidth={1.8}
-            className="mt-0.5 shrink-0 text-red-500"
-          />
-
-          <p className="text-sm leading-5 text-red-700">
-            {error}
-          </p>
-        </div>
-      )}
-
-      <section className="space-y-4 rounded-xl border border-pink-100 bg-white p-4">
-        <div>
-          <h3 className="text-sm font-medium text-gray-900">
-            Product Information
-          </h3>
-
-          <p className="mt-1 text-xs text-gray-400">
-            Basic details used to identify the product.
-          </p>
-        </div>
-
-        <Field label="Product Name" required>
-          <input
-            className={inputClass}
-            type="text"
-            value={values.name}
-            onChange={set('name')}
-            placeholder="e.g. Face Cream"
-            required
-          />
-        </Field>
-
-        <Field label="SKU / Code" required>
-          <input
-            className={inputClass}
-            type="text"
-            value={values.sku}
-            onChange={set('sku')}
-            placeholder="e.g. FC001"
-            required
-          />
-        </Field>
-
-        <Field label="Category" required>
-          <select
-            className={inputClass}
-            value={values.categoryId}
-            onChange={set('categoryId')}
-            required
-          >
-            <option value="">
-              Select category
-            </option>
-
-            {categories.map((category) => (
-              <option
-                key={category.id}
-                value={category.id}
-              >
-                {category.name}
-              </option>
-            ))}
-          </select>
-
-          {categories.length === 0 && (
-            <p className="mt-1.5 text-xs text-gray-400">
-              No categories yet.{' '}
-              <Link
-                to="/owner/categories"
-                className="font-medium text-pink-700 underline"
-              >
-                Add one first
-              </Link>
-              .
+            <p className="text-sm leading-5 text-text-primary">
+              {error}
             </p>
-          )}
-        </Field>
-      </section>
+          </div>
+        )}
 
-      <section className="space-y-4 rounded-xl border border-pink-100 bg-white p-4">
-        <div>
-          <h3 className="text-sm font-medium text-gray-900">
-            Pricing & Stock
-          </h3>
+        {/* Product Information */}
+        <Card
+          variant="outlined"
+          padding="lg"
+          className="space-y-5"
+        >
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">
+              Product Information
+            </h3>
 
-          <p className="mt-1 text-xs text-gray-400">
-            Set the product price and starting stock.
-          </p>
-        </div>
+            <p className="mt-1 text-xs text-text-muted">
+              Basic details used to identify the product.
+            </p>
+          </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Selling Price (KSh)" required>
-            <input
-              className={inputClass}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              label="Product Name"
+              value={values.name}
+              onChange={set('name')}
+              placeholder="e.g. Face Cream"
+              required
+            />
+
+            <Input
+              label="SKU / Code"
+              value={values.sku}
+              onChange={set('sku')}
+              placeholder="e.g. FC001"
+              required
+            />
+
+            <div className="sm:col-span-2">
+              <Select
+                label="Category *"
+                options={categoryOptions}
+                value={values.categoryId}
+                onChange={setCategory}
+                placeholder="Select category"
+                searchable
+                searchPlaceholder="Search categories..."
+                noOptionsMessage="No categories found"
+                size="md"
+                disabled={categories.length === 0}
+              />
+
+              {categories.length === 0 && (
+                <p className="mt-2 text-xs text-text-muted">
+                  No categories yet.{' '}
+                  <Link
+                    to="/owner/categories"
+                    className="font-medium text-interactive-primary underline"
+                  >
+                    Add one first
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* Pricing & Stock */}
+        <Card
+          variant="outlined"
+          padding="lg"
+          className="space-y-5"
+        >
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">
+              Pricing & Stock
+            </h3>
+
+            <p className="mt-1 text-xs text-text-muted">
+              Set the product price and starting stock.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              label="Selling Price (KSh)"
               type="text"
               inputMode="decimal"
               value={values.sellingPrice}
@@ -267,12 +233,10 @@ export default function ProductForm({
               placeholder="350"
               required
             />
-          </Field>
 
-          {isNew ? (
-            <Field label="Stock Quantity" required>
-              <input
-                className={inputClass}
+            {isNew ? (
+              <Input
+                label="Stock Quantity"
                 type="number"
                 inputMode="numeric"
                 min="0"
@@ -282,84 +246,97 @@ export default function ProductForm({
                 placeholder="12"
                 required
               />
-            </Field>
-          ) : (
-            <div>
-              <span className="mb-1.5 block text-xs font-medium text-gray-700">
-                Current Stock
-              </span>
+            ) : (
+              <Input
+                label="Current Stock"
+                value={String(initial.stock)}
+                readOnly
+                disabled
+              />
+            )}
+          </div>
 
-              <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700">
-                {initial.stock}
-              </div>
+          {!isNew && (
+            <div className="rounded-xl border border-border bg-interactive-soft p-3">
+              <p className="text-xs leading-5 text-text-secondary">
+                Stock changes are made from the Stock screen so every adjustment is recorded in your stock history.
+              </p>
             </div>
           )}
-        </div>
 
-        {!isNew && (
-          <div className="rounded-lg bg-pink-50 p-3">
-            <p className="text-xs leading-5 text-pink-800">
-              Stock changes are made from the Stock screen so
-              every adjustment is recorded in your stock history.
-            </p>
-          </div>
-        )}
-
-        <Field
-          label="Buying Price (KSh), optional"
-          hint="Used internally to help you understand your product costs."
-        >
-          <input
-            className={inputClass}
+          <Input
+            label="Buying Price (KSh), optional"
+            hint="Used internally to help you understand your product costs."
             type="text"
             inputMode="decimal"
             value={values.buyingPrice}
             onChange={set('buyingPrice')}
             placeholder="150"
           />
-        </Field>
-      </section>
+        </Card>
 
-      <section className="space-y-4 rounded-xl border border-pink-100 bg-white p-4">
-        <div>
-          <h3 className="text-sm font-medium text-gray-900">
-            Additional Information
-          </h3>
+        {/* Additional Information */}
+        <Card
+          variant="outlined"
+          padding="lg"
+          className="space-y-5"
+        >
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">
+              Additional Information
+            </h3>
 
-          <p className="mt-1 text-xs text-gray-400">
-            Optional information about the product.
-          </p>
+            <p className="mt-1 text-xs text-text-muted">
+              Optional information about the product.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-text-primary">
+              Description, optional
+            </label>
+
+            <textarea
+              rows={4}
+              value={values.description}
+              onChange={set('description')}
+              placeholder="Add a short description..."
+              className="
+                w-full resize-y rounded-xl border border-border
+                bg-background px-4 py-3 text-sm text-text-primary
+                outline-none placeholder:text-text-muted
+                transition-colors
+                focus:border-interactive-primary
+                focus:ring-2 focus:ring-interactive-soft
+              "
+            />
+          </div>
+        </Card>
+
+        {/* Form actions */}
+        <div className="flex flex-col-reverse gap-3 border-t border-divider pt-5 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            disabled={saving}
+            onClick={() => navigate('/owner/products')}
+            className="w-full sm:w-auto"
+          >
+            Cancel
+          </Button>
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            loading={saving}
+            className="w-full sm:w-auto"
+          >
+            {submitLabel}
+          </Button>
         </div>
-
-        <Field label="Description, optional">
-          <textarea
-            className={inputClass}
-            rows={4}
-            value={values.description}
-            onChange={set('description')}
-            placeholder="Add a short description..."
-          />
-        </Field>
-      </section>
-
-      <div className="grid grid-cols-2 gap-3 pb-2">
-        <button
-          type="button"
-          onClick={() => navigate('/owner/products')}
-          disabled={saving}
-          className="rounded-xl border border-pink-200 bg-white py-3 text-sm font-medium text-pink-700 disabled:opacity-50"
-        >
-          Cancel
-        </button>
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-xl bg-pink-600 py-3 text-sm font-medium text-white disabled:opacity-60"
-        >
-          {saving ? 'Saving...' : submitLabel}
-        </button>
-      </div>
-    </form>
+      </form>
+    </PageContainer>
   )
 }

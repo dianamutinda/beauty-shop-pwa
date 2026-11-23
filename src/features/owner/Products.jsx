@@ -1,60 +1,89 @@
-
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Search, Plus, ChevronRight } from 'lucide-react'
+import {
+  Search,
+  Plus,
+  ChevronRight,
+  Package,
+  AlertTriangle,
+  PackageX,
+  Wallet,
+} from 'lucide-react'
+
 import { searchProducts } from '../../db/products'
 import { formatKsh, stockStatus } from '../../lib/format'
 
+import Card from '../../components/ui/Card'
+import Badge from '../../components/ui/Badge'
+import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
+import StatCard from '../../components/ui/StatCard'
+import PageContainer from '../../components/layout/PageContainer'
+import PageHeader from '../../components/layout/PageHeader'
+
 function ProductCard({ product }) {
-  const status = stockStatus(product.stock)
+  const threshold = product.lowStockAt ?? 5
+  const status = stockStatus(product.stock, threshold)
+
+  const badgeVariant =
+    product.stock <= 0
+      ? 'danger'
+      : product.stock <= threshold
+        ? 'warning'
+        : 'success'
 
   return (
     <Link
       to={`/owner/products/${product.id}/edit`}
-      className="block rounded-xl border border-pink-100 bg-white p-4 transition-colors hover:bg-pink-50/30"
+      className="block h-full"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-gray-900">
-            {product.name}
-          </p>
-
-          <p className="mt-1 text-xs text-gray-400">
-            SKU: {product.sku}
-          </p>
-
-          <div className="mt-3 flex items-center gap-2">
-            <span
-              className={`rounded-full px-2 py-1 text-[11px] font-medium ${status.className}`}
-            >
-              {status.label}
-            </span>
-
-            <span className="text-xs text-gray-400">
-              {product.stock} in stock
-            </span>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="text-right">
-            <p className="text-sm font-semibold text-pink-700">
-              {formatKsh(product.sellingPrice)}
+      <Card
+        variant="outlined"
+        padding="md"
+        hoverable
+        className="h-full transition-colors"
+      >
+        <div className="flex items-center justify-between gap-4 lg:h-full lg:flex-col lg:items-stretch">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-text-primary">
+              {product.name}
             </p>
 
-            <p className="mt-1 text-[11px] text-gray-400">
-              Selling price
+            <p className="mt-1 text-xs text-text-muted">
+              SKU: {product.sku || 'Not provided'}
             </p>
+
+            <div className="mt-3 flex items-center gap-2">
+              <Badge variant={badgeVariant} size="sm">
+                {status.label}
+              </Badge>
+
+              <span className="text-xs text-text-secondary">
+                {product.stock} in stock
+              </span>
+            </div>
           </div>
 
-          <ChevronRight
-            size={17}
-            strokeWidth={1.8}
-            className="text-gray-300"
-          />
+          <div className="flex shrink-0 items-center gap-2 lg:mt-auto lg:justify-between lg:border-t lg:border-divider lg:pt-4">
+            <div className="text-right lg:text-left">
+              <p className="text-sm font-semibold text-text-primary">
+                {formatKsh(product.sellingPrice)}
+              </p>
+
+              <p className="mt-1 text-[11px] text-text-muted">
+                Selling price
+              </p>
+            </div>
+
+            <ChevronRight
+              size={18}
+              strokeWidth={1.8}
+              className="text-text-muted lg:hidden"
+            />
+          </div>
         </div>
-      </div>
+      </Card>
     </Link>
   )
 }
@@ -67,118 +96,152 @@ export default function Products() {
     [text]
   )
 
+  const allProducts = useLiveQuery(
+    () => searchProducts(''),
+    []
+  )
+
+  const stats = {
+    total: allProducts?.length ?? 0,
+
+    lowStock: allProducts?.filter((product) => {
+      const threshold = product.lowStockAt ?? 5
+      return product.stock > 0 && product.stock <= threshold
+    }).length ?? 0,
+
+    outOfStock: allProducts?.filter(
+      (product) => product.stock <= 0
+    ).length ?? 0,
+
+    stockValue: allProducts?.reduce(
+      (total, product) =>
+        total +
+        (Number(product.sellingPrice) || 0) *
+          (Number(product.stock) || 0),
+      0
+    ) ?? 0,
+  }
+
+  const statsLoading = !allProducts
+
   return (
-    <div className="space-y-5">
-      <div>
-        <div className="flex items-center gap-1.5 text-xs">
-          <Link
-            to="/owner"
-            className="font-medium text-pink-700"
-          >
-            Dashboard
-          </Link>
-
-          <span className="text-gray-300">/</span>
-
-          <span className="text-gray-400">
-            Products
-          </span>
-        </div>
-
-        <div className="mt-3 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-pink-700">
-              Products
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Manage products, prices, and stock.
-            </p>
-          </div>
-
-          <Link
-            to="/owner/products/new"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-pink-600 px-3 py-2 text-xs font-medium text-white"
-          >
-            <Plus size={15} strokeWidth={2} />
-            Add Product
-          </Link>
-        </div>
-      </div>
-
-      <div className="relative">
-        <Search
-          size={17}
-          strokeWidth={1.8}
-          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+    <PageContainer
+      maxWidth="max-w-[1440px]"
+      className="pb-24"
+    >
+      <div className="space-y-6">
+        <PageHeader
+          title="Products"
+          description="Manage your products, prices, and stock."
         />
 
-        <input
-          type="search"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Search by name or SKU..."
-          className="w-full rounded-xl border border-pink-100 bg-white py-3 pl-10 pr-4 text-sm outline-none placeholder:text-gray-400 focus:border-pink-300 focus:ring-2 focus:ring-pink-50"
-        />
-      </div>
+        {/* Inventory statistics */}
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <StatCard
+            title="Total Products"
+            value={statsLoading ? '—' : stats.total}
+            icon={<Package size={20} />}
+          />
 
-      {!products ? (
-        <div className="rounded-xl border border-pink-100 bg-white p-6 text-center text-sm text-gray-400">
-          Loading products...
+          <StatCard
+            title="Low Stock"
+            value={statsLoading ? '—' : stats.lowStock}
+            icon={<AlertTriangle size={20} />}
+          />
+
+          <StatCard
+            title="Out of Stock"
+            value={statsLoading ? '—' : stats.outOfStock}
+            icon={<PackageX size={20} />}
+          />
+
+          <StatCard
+            title="Stock Value"
+            value={statsLoading ? '—' : formatKsh(stats.stockValue)}
+            icon={<Wallet size={20} />}
+          />
         </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-gray-500">
-              {products.length}{' '}
-              {products.length === 1 ? 'product' : 'products'}
+
+        {/* Search */}
+        <div className="max-w-xl">
+          <Input
+            type="search"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Search by name or SKU..."
+            leftIcon={<Search size={18} strokeWidth={1.8} />}
+          />
+        </div>
+
+        {/* Product list */}
+        {!products ? (
+          <Card variant="outlined" padding="lg">
+            <p className="text-center text-sm text-text-muted">
+              Loading products...
             </p>
-
-            {text && (
-              <button
-                type="button"
-                onClick={() => setText('')}
-                className="text-xs font-medium text-pink-700"
-              >
-                Clear search
-              </button>
-            )}
-          </div>
-
-          {products.length === 0 ? (
-            <div className="rounded-xl border border-pink-100 bg-white p-6 text-center">
-              <p className="text-sm font-medium text-gray-700">
-                {text ? 'No products found' : 'No products yet'}
+          </Card>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-text-secondary">
+                {products.length}{' '}
+                {products.length === 1 ? 'product' : 'products'}
               </p>
 
-              <p className="mt-1 text-xs leading-5 text-gray-400">
-                {text
-                  ? `Nothing matches "${text}". Try another name or SKU.`
-                  : 'Add your first product to start managing your inventory.'}
-              </p>
-
-              {!text && (
-                <Link
-                  to="/owner/products/new"
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-pink-600 px-4 py-2.5 text-xs font-medium text-white"
+              {text && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setText('')}
                 >
-                  <Plus size={15} strokeWidth={2} />
-                  Add First Product
-                </Link>
+                  Clear search
+                </Button>
               )}
             </div>
-          ) : (
-            <div className="space-y-3">
-              {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                />
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
+
+            {products.length === 0 ? (
+              <Card
+                variant="outlined"
+                padding="lg"
+                className="text-center"
+              >
+                <p className="text-sm font-semibold text-text-primary">
+                  {text ? 'No products found' : 'No products yet'}
+                </p>
+
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">
+                  {text
+                    ? `Nothing matches "${text}". Try another name or SKU.`
+                    : 'Add your first product to start managing your inventory.'}
+                </p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Floating Add Product */}
+      <Link
+        to="/owner/products/new"
+        className="fixed bottom-7 right-7 z-30"
+      >
+        <Button
+          size="lg"
+          className="rounded-full shadow-md"
+        >
+          <Plus size={19} strokeWidth={2.2} />
+          Add Product
+        </Button>
+      </Link>
+    </PageContainer>
   )
 }

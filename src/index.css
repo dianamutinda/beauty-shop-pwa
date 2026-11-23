@@ -30,6 +30,8 @@
   --color-warning: #C58A2A;
   --color-error: #C74747;
   --color-info: #4B7FAE;
+
+  --color-interactive-primary-foreground: var(--interactive-primary-foreground);
 }
 
 :root {
@@ -49,6 +51,7 @@
   --interactive-hover: #244A31;
   --interactive-pressed: #1F402A;
   --interactive-soft: #EAF3EB;
+  --interactive-primary-foreground: #FFFFFF;
 }
 
 .dark {
@@ -68,6 +71,7 @@
   --interactive-hover: #D7E8D8;
   --interactive-pressed: #B5D6B9;
   --interactive-soft: #243B2B;
+  --interactive-primary-foreground: #18251D;
 }
 
 @layer base {

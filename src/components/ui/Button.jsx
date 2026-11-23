@@ -23,11 +23,11 @@ const baseStyles = `
 
 const variants = {
   primary: `
-    bg-interactive-primary
-    text-white
-    hover:bg-interactive-hover
-    active:bg-interactive-pressed
-  `,
+  bg-interactive-primary
+  text-interactive-primary-foreground
+  hover:bg-interactive-hover
+  active:bg-interactive-pressed
+`,
 
   secondary: `
     bg-interactive-soft
