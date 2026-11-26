@@ -22,13 +22,13 @@ import { getDashboardStats } from '../../db/dashboard'
 import { db } from '../../db'
 import { formatKsh } from '../../lib/format'
 
-import Card from '../../components/ui/Card'
-import StatCard from '../../components/ui/StatCard'
-import Tabs from '../../components/ui/Tabs'
-import PageContainer from '../../components/layout/PageContainer'
-import PageHeader from '../../components/layout/PageHeader'
-import NotificationBell from '../../components/ui/NotificationBell'
-
+import Card from '../../features/sales/components/ui/Card'
+import StatCard from '../../features/sales/components/ui/StatCard'
+import Tabs from '../../features/sales/components/ui/Tabs'
+import PageContainer from '../../features/sales/components/layout/PageContainer'
+import PageHeader from '../../features/sales/components/layout/PageHeader'
+import NotificationBell from '../../features/sales/components/ui/NotificationBell'
+    
 const TIMEFRAMES = [
   { value: 'today', label: 'Today' },
   { value: '7days', label: '7 days' },

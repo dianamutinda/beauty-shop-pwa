@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import { getShop } from '../../db/shop'
-import { useRole } from '../../auth/AuthContext'
+import { useRole } from '../../context/AuthContext'
 import { hasPinSet } from '../../auth/pin'
 
 function getInitials(name, email) {

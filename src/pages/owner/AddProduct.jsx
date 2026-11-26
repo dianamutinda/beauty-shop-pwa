@@ -3,8 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { addProduct, listCategories } from '../../db/products'
 
 import ProductForm from './ProductForm'
-import PageContainer from '../../components/layout/PageContainer'
-import PageHeader from '../../components/layout/PageHeader'
+import PageContainer from '../../features/sales/components/layout/PageContainer'
+import PageHeader from '../../features/sales/components/layout/PageHeader'
 
 const EMPTY = {
   name: '',

@@ -21,13 +21,14 @@ import {
   stockStatus,
 } from '../../lib/format'
 
-import PageContainer from '../../components/layout/PageContainer'
-import PageHeader from '../../components/layout/PageHeader'
-import Card from '../../components/ui/Card'
-import Badge from '../../components/ui/Badge'
-import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
-import Select from '../../components/ui/Select'
+
+import PageContainer from '../../features/sales/components/layout/PageContainer'
+import PageHeader from '../../features/sales/components/layout/PageHeader'
+import Card from '../../features/sales/components/ui/Card'
+import Badge from '../../features/sales/components/ui/Badge'
+import Button from '../../features/sales/components/ui/Button'
+import Input from '../../features/sales/components/ui/Input'
+import Select from '../../features/sales/components/ui/Select'
 
 const REASONS = {
   add: [

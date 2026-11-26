@@ -14,13 +14,13 @@ import {
 import { searchProducts } from '../../db/products'
 import { formatKsh, stockStatus } from '../../lib/format'
 
-import Card from '../../components/ui/Card'
-import Badge from '../../components/ui/Badge'
-import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
-import StatCard from '../../components/ui/StatCard'
-import PageContainer from '../../components/layout/PageContainer'
-import PageHeader from '../../components/layout/PageHeader'
+import Card from '../../features/sales/components/ui/Card'
+import Badge from '../../features/sales/components/ui/Badge'
+import Button from '../../features/sales/components/ui/Button'
+import Input from '../../features/sales/components/ui/Input'
+import StatCard from '../../features/sales/components/ui/StatCard'
+import PageContainer from '../../features/sales/components/layout/PageContainer'
+import PageHeader from '../../features/sales/components/layout/PageHeader'
 
 function ProductCard({ product }) {
   const threshold = product.lowStockAt ?? 5

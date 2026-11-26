@@ -1,10 +1,10 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { searchProducts } from '../../db/products'
-import { recordSale, voidSale } from '../../db/stock'
-import { formatKsh } from '../../lib/format'
-import { useBasketContext } from './BasketContext'
+import { searchProducts } from '../../../db/products'
+import { recordSale, voidSale } from '../../../db/stock'
+import { formatKsh } from '../../../lib/format'
+import { useBasketContext } from '../../../context/BasketContext'
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash' },

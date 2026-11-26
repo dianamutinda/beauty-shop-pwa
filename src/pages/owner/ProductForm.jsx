@@ -3,12 +3,12 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle } from 'lucide-react'
 
-import Card from '../../components/ui/Card'
-import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
-import Select from '../../components/ui/Select'
-import PageContainer from '../../components/layout/PageContainer'
-import PageHeader from '../../components/layout/PageHeader'
+import Card from '../../features/sales/components/ui/Card'
+import Button from '../../features/sales/components/ui/Button'
+import Input from '../../features/sales/components/ui/Input'
+import Select from '../../features/sales/components/ui/Select'
+import PageContainer from '../../features/sales/components/layout/PageContainer'
+import PageHeader from '../../features/sales/components/layout/PageHeader'
 
 function validate(values, isNew) {
   if (!values.name.trim()) {

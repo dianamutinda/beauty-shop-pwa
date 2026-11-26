@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { setPin } from './pin'
-import { useRole } from './AuthContext'
+import { useRole } from '../context/AuthContext'
 
 export default function SetPin() {
   const navigate = useNavigate()

@@ -11,7 +11,7 @@ import {
 
 import { listCategories } from '../../db/products'
 import { listRecentProducts } from '../../db/recent'
-import { useBasketContext } from './BasketContext'
+import { useBasketContext } from '../../context/BasketContext'
 import { formatKsh } from '../../lib/format'
 
 function greeting() {

@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 
-import { subscribeSyncStatus, syncAll } from '../db/sync';
-import { countUnsynced } from '../db/accountSwitch';
+import { subscribeSyncStatus, syncAll } from '../../../db/sync';
+import { countUnsynced } from '../../../db/accountSwitch';
 
 export default function SyncBadge() {
   const [status, setStatus] = useState({});

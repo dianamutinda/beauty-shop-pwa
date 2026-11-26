@@ -1,7 +1,7 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useBasketContext } from './BasketContext'
+import { useBasketContext } from '../../context/BasketContext'
 
 export default function AddToSale({ product }) {
   const [quantity, setQuantity] = useState(1)

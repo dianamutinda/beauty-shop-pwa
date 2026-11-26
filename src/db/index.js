@@ -30,3 +30,13 @@ db.version(5).stores({
 db.version(6).stores({
   syncQueue: '++seq, table, recordId, op, createdAt',
 })
+
+db.version(7).stores({
+  customers: 'id, shopId, name, phone, synced',
+
+  sales: 'saleId, shopId, customerId, timestamp, status, synced',
+
+  salePayments: 'id, shopId, saleId, customerId, method, timestamp, synced',
+
+  stockMovements: 'id, shopId, productId, type, timestamp, synced, saleId',
+})

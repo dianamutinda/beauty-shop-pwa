@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useRole } from './AuthContext'
+import { useRole } from '../context/AuthContext'
 import { clearPin } from './pin'
 import { supabase } from '../db/supabase'
 

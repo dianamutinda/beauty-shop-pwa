@@ -1,14 +1,14 @@
 
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
-import { Sun, Moon } from 'lucide-react';
+import { useState } from 'react'
+import { Outlet } from 'react-router-dom'
+import { Sun, Moon } from 'lucide-react'
 
-import Header from './Header';
-import Sidebar from './Sidebar';
-import SyncBadge from '../SyncBadge';
+import Header from './Header'
+import Sidebar from './Sidebar'
+import SyncBadge from '../SyncBadge'
 
-import { useTheme } from '../../context/ThemeContext';
-import { useRole } from '../../auth/AuthContext';
+import { useTheme } from '../../../../context/ThemeContext'
+import { useRole } from '../../../../context/AuthContext'
 
 export default function AppLayout({
   brandName = 'My Shop',
@@ -18,10 +18,10 @@ export default function AppLayout({
   headerActions,
   sidebarSections,
 }) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  const { isDark, toggleTheme } = useTheme();
-  const { user, profile } = useRole();
+  const { isDark, toggleTheme } = useTheme()
+  const { user, profile } = useRole()
 
   const themeButton = (
     <button
@@ -40,7 +40,7 @@ export default function AppLayout({
     >
       {isDark ? <Sun size={19} /> : <Moon size={19} />}
     </button>
-  );
+  )
 
   const headerUser = profile
     ? {
@@ -53,7 +53,12 @@ export default function AppLayout({
           '',
         avatar: profile.avatar_url || profile.avatar || '',
       }
-    : null;
+    : user
+      ? {
+          name: user.email || '',
+          avatar: '',
+        }
+      : null
 
   return (
     <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-background">
@@ -74,16 +79,15 @@ export default function AppLayout({
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
-          brandName={brandName}
           sections={sidebarSections}
           collapsed={sidebarCollapsed}
           onCollapsedChange={setSidebarCollapsed}
         />
 
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main className="min-w-0 min-h-0 flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>
     </div>
-  );
+  )
 }

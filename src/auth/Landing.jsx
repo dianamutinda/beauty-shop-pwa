@@ -1,7 +1,8 @@
 // src/auth/Landing.jsx
+
 import { Navigate } from 'react-router-dom'
-import { useRole } from './AuthContext'
-import Home from '../features/lookup/Home'
+import { useRole } from '../context/AuthContext'
+import Home from '../pages/lookup/Home'
 
 export default function Landing() {
   const { role, loading } = useRole()
